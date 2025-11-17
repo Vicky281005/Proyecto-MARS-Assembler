@@ -144,16 +144,43 @@ end_draw_loop_inner:
     # --- 2. REVISAR TECLADO (Syscall 12) ---
     li   $v0, 12           # Syscall: Leer Carácter
     syscall                # El programa SE DETIENE aquí
-    # La tecla está en $v0
-    move $t4, $v0          # $t4 = tecla (ej. 'w')
+    move $t4, $v0          # $t4 = tecla
 
-    # --- 3. ACTUALIZAR JUEGO (SI SE PRESIONÓ 'w') ---
-    li   $t5, 119              # 119 es el ASCII para 'w'
-    bne  $t4, $t5, no_input    # Si no es 'w', saltar
+    # --- 3. ACTUALIZAR JUEGO (Comprobar W, A, S, D) ---
+    # $t5 = el desplazamiento (offset) a usar
     
-    # Se presionó 'w'. Intentar mover ARRIBA (índice - 16)
-    li   $t5, 16
-    sub  $t6, $s0, $t5         # $t6 = nueva_pos = pos_actual - 16
+    li   $t7, 119          # ASCII 'w'
+    beq  $t4, $t7, set_move_w
+    
+    li   $t7, 97           # ASCII 'a'
+    beq  $t4, $t7, set_move_a
+    
+    li   $t7, 115          # ASCII 's'
+    beq  $t4, $t7, set_move_s
+    
+    li   $t7, 100          # ASCII 'd'
+    beq  $t4, $t7, set_move_d
+    
+    # Ninguna tecla válida, volver a dibujar
+    j    no_input
+
+set_move_w:
+    li   $t5, -16          # Desplazamiento = -16 (Arriba)
+    j    perform_move
+set_move_a:
+    li   $t5, -1           # Desplazamiento = -1 (Izquierda)
+    j    perform_move
+set_move_s:
+    li   $t5, 16           # Desplazamiento = +16 (Abajo)
+    j    perform_move
+set_move_d:
+    li   $t5, 1            # Desplazamiento = +1 (Derecha)
+    j    perform_move
+
+perform_move:
+    # $s0 = pos_actual_indice
+    # $t5 = desplazamiento
+    add  $t6, $s0, $t5         # $t6 = nueva_pos = pos_actual + desplazamiento
     
     # Comprobar si la nueva_pos es negra (0)
     la   $t0, mapa_pacman      # Recargar base del mapa
