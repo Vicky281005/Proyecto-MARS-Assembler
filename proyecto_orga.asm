@@ -6,6 +6,7 @@ paleta_colores:
     .word 0xFFFFFFFF  # Índice 2: Blanco (Punto 1)
     .word 0xFFFF00FF  # Índice 3: Fucsia (Punto 2)
     .word 0xFF800080  # Índice 4: Morado (Punto 3)
+    .word 0xFFFFFF00  # Índice 5: Amarillo (Moneda)
 
 # --- MAPA OPTIMIZADO (Y CORREGIDO) ---
 mapa_pacman:
@@ -35,22 +36,15 @@ main:
     la   $t1, paleta_colores   # $t1 = Puntero al inicio de la paleta (.word)
     li   $t2, 0x10010000       # $t2 = Puntero al inicio del display (.word)
 
-    # --- CÓDIGO NUEVO (Búsqueda para 3 puntos) ---
-
     # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO (Índice 2) ---
 find_spot_blanco:
     li   $v0, 42
     li   $a1, 222          # Rango 0-221
     syscall
     addi $a0, $a0, 18    # Índice 18-239
-    
-    add  $t6, $t0, $a0     # $t6 = &mapa_pacman[índice_aleatorio]
-    lb   $t5, 0($t6)       # $t5 = valor en esa celda (0, 1, etc.)
-    
-    # Si no es 0 (Negro), vuelve a intentarlo
+    add  $t6, $t0, $a0     
+    lb   $t5, 0($t6)       
     bne  $t5, $zero, find_spot_blanco 
-
-    # Encontrado: Guardar 2 (Blanco)
     li   $t5, 2
     sb   $t5, 0($t6)
 
@@ -60,15 +54,9 @@ find_spot_fucsia:
     li   $a1, 222          # Rango 0-221
     syscall
     addi $a0, $a0, 18    # Índice 18-239
-    
-    add  $t6, $t0, $a0     # $t6 = &mapa_pacman[índice_aleatorio]
-    lb   $t5, 0($t6)       # $t5 = valor en esa celda
-    
-    # Si no es 0 (Negro), vuelve a intentarlo
-    # (Fallará si cae en Pared, o en el Punto Blanco)
+    add  $t6, $t0, $a0     
+    lb   $t5, 0($t6)       
     bne  $t5, $zero, find_spot_fucsia 
-
-    # Encontrado: Guardar 3 (Fucsia)
     li   $t5, 3
     sb   $t5, 0($t6)
 
@@ -78,17 +66,49 @@ find_spot_morado:
     li   $a1, 222          # Rango 0-221
     syscall
     addi $a0, $a0, 18    # Índice 18-239
+    add  $t6, $t0, $a0     
+    lb   $t5, 0($t6)       
+    bne  $t5, $zero, find_spot_morado 
+    li   $t5, 4
+    sb   $t5, 0($t6)
+
+    # --- 4. GENERAR 3-6 PUNTOS AMARILLOS (Índice 5) ---
+    
+    # 4.A. Generar N (número de monedas) entre 3 y 6
+    li   $v0, 42
+    li   $a1, 4            # Rango de 4 números (0, 1, 2, 3)
+    syscall
+    addi $s0, $a0, 3      # $s0 = (0-3) + 3 = 3-6. $s0 es N (nuestro límite)
+    
+    li   $s1, 0            # $s1 = i (nuestro contador)
+
+bucle_monedas:
+    # Si i >= N, salir
+    bge  $s1, $s0, fin_bucle_monedas
+
+    # 4.B. Encontrar un lugar para ESTA moneda
+find_spot_amarillo:
+    li   $v0, 42
+    li   $a1, 222          # Rango 0-221
+    syscall
+    addi $a0, $a0, 18    # Índice 18-239
     
     add  $t6, $t0, $a0     # $t6 = &mapa_pacman[índice_aleatorio]
     lb   $t5, 0($t6)       # $t5 = valor en esa celda
     
     # Si no es 0 (Negro), vuelve a intentarlo
-    # (Fallará en Paredes, Blanco, y Fucsia)
-    bne  $t5, $zero, find_spot_morado 
+    # (Fallará en Paredes, Blanco, Fucsia y Morado)
+    bne  $t5, $zero, find_spot_amarillo 
 
-    # Encontrado: Guardar 4 (Morado)
-    li   $t5, 4
+    # Encontrado: Guardar 5 (Amarillo)
+    li   $t5, 5
     sb   $t5, 0($t6)
+    
+    # 4.C. Incrementar contador y repetir para la siguiente moneda
+    addi $s1, $s1, 1      # i++
+    j    bucle_monedas
+
+fin_bucle_monedas:
     # --- FIN CÓDIGO NUEVO ---
 
 
@@ -100,7 +120,7 @@ draw_loop:
     # Salir del bucle si (i >= 256)
     bge  $t3, $t4, done
 
-    # 1. Obtener el tipo de celda (0, 1, 2, 3, o 4) del mapa
+    # 1. Obtener el tipo de celda (0-5) del mapa
     lb   $t5, 0($t0)           # Carga el byte desde la dirección en $t0
 
     # 2. Obtener el color de la paleta
