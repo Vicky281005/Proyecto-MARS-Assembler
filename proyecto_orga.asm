@@ -7,6 +7,7 @@ paleta_colores:
     .word 0xFFFF00FF  # Índice 3: Fucsia (Punto 2)
     .word 0xFF800080  # Índice 4: Morado (Punto 3)
     .word 0xFFFFFF00  # Índice 5: Amarillo (Moneda)
+    .word 0xFFFF0000  # Índice 6: Rojo (Punto 3)
 
 # --- MAPA OPTIMIZADO (Y CORREGIDO) ---
 mapa_pacman:
@@ -73,42 +74,50 @@ find_spot_morado:
     sb   $t5, 0($t6)
 
     # --- 4. GENERAR 3-6 PUNTOS AMARILLOS (Índice 5) ---
-    
-    # 4.A. Generar N (número de monedas) entre 3 y 6
     li   $v0, 42
     li   $a1, 4            # Rango de 4 números (0, 1, 2, 3)
     syscall
-    addi $s0, $a0, 3      # $s0 = (0-3) + 3 = 3-6. $s0 es N (nuestro límite)
-    
-    li   $s1, 0            # $s1 = i (nuestro contador)
-
+    addi $s0, $a0, 3      # $s0 = (0-3) + 3 = 3-6. $s0 es N (límite)
+    li   $s1, 0            # $s1 = i (contador)
 bucle_monedas:
-    # Si i >= N, salir
     bge  $s1, $s0, fin_bucle_monedas
-
-    # 4.B. Encontrar un lugar para ESTA moneda
 find_spot_amarillo:
     li   $v0, 42
     li   $a1, 222          # Rango 0-221
     syscall
     addi $a0, $a0, 18    # Índice 18-239
-    
-    add  $t6, $t0, $a0     # $t6 = &mapa_pacman[índice_aleatorio]
-    lb   $t5, 0($t6)       # $t5 = valor en esa celda
-    
-    # Si no es 0 (Negro), vuelve a intentarlo
-    # (Fallará en Paredes, Blanco, Fucsia y Morado)
+    add  $t6, $t0, $a0     
+    lb   $t5, 0($t6)       
     bne  $t5, $zero, find_spot_amarillo 
-
-    # Encontrado: Guardar 5 (Amarillo)
     li   $t5, 5
     sb   $t5, 0($t6)
-    
-    # 4.C. Incrementar contador y repetir para la siguiente moneda
     addi $s1, $s1, 1      # i++
     j    bucle_monedas
-
 fin_bucle_monedas:
+
+    # --- 5. GENERAR 2-4 PUNTOS ROJOS (Índice 6) ---
+    li   $v0, 42
+    li   $a1, 3            # Rango de 3 números (0, 1, 2)
+    syscall
+    addi $s0, $a0, 2      # $s0 = (0-2) + 2 = 2-4. $s0 es N (límite)
+    li   $s1, 0            # $s1 = i (contador)
+bucle_rojos:
+    bge  $s1, $s0, fin_bucle_rojos
+find_spot_rojo:
+    li   $v0, 42
+    li   $a1, 222          # Rango 0-221
+    syscall
+    addi $a0, $a0, 18    # Índice 18-239
+    add  $t6, $t0, $a0     
+    lb   $t5, 0($t6)       
+    # Si no es 0 (Negro), vuelve a intentarlo
+    bne  $t5, $zero, find_spot_rojo 
+    # Encontrado: Guardar 6 (Rojo)
+    li   $t5, 6
+    sb   $t5, 0($t6)
+    addi $s1, $s1, 1      # i++
+    j    bucle_rojos
+fin_bucle_rojos:
     # --- FIN CÓDIGO NUEVO ---
 
 
@@ -120,7 +129,7 @@ draw_loop:
     # Salir del bucle si (i >= 256)
     bge  $t3, $t4, done
 
-    # 1. Obtener el tipo de celda (0-5) del mapa
+    # 1. Obtener el tipo de celda (0-6) del mapa
     lb   $t5, 0($t0)           # Carga el byte desde la dirección en $t0
 
     # 2. Obtener el color de la paleta
