@@ -180,7 +180,7 @@ end_draw_loop_inner:
     syscall
     move $t4, $v0          # $t4 = tecla
 
-    # --- 3. ACTUALIZAR JUGADOR (Comprobar W, A, S, D) ---
+    # --- 3. ACTUALIZAR JUGADOR (W, A, S, D) ---
     li   $t7, 119          # ASCII 'w'
     beq  $t4, $t7, set_move_w
     li   $t7, 97           # ASCII 'a'
@@ -211,7 +211,7 @@ perform_move:
     
     # Lógica de Colisión (solo contra pared)
     li   $t9, 1
-    beq  $t8, $t9, move_ghosts    # Si es pared (1), no te muevas
+    beq  $t8, $t9, move_ghosts # Si es pared (1), no te muevas
     
     # Lógica de Teleport
     li   $t9, 4
@@ -228,10 +228,11 @@ find_teleport_spot:
     li   $t5, 2
     sb   $t5, 0($t7)
     move $s0, $a0             
-    j    move_ghosts            # Movimiento hecho, ir a fantasmas
+    j    move_ghosts
     
 not_morado:
     # --- Movimiento Válido (a 0, 3, 5, o 6) ---
+    # (¡NO comprueba colisión con fantasma aquí!)
     add  $t7, $t0, $s0         
     sb   $zero, 0($t7)
     li   $t5, 2
@@ -307,19 +308,8 @@ check_red_move:
     add  $t7, $t0, $t6     
     lb   $t9, 0($t7)       # $t9 = valor en nueva_pos
     
-    # Comprobar si es pared (1) u otro fantasma (6)
-    li   $t7, 1
-    beq  $t9, $t7, red_dot_inner_loop
-    li   $t7, 6
-    beq  $t9, $t7, red_dot_inner_loop
-    
-    # Solo se mueve a 0 (negro), pero puede pisar 3, 4, 5
-    # (Lo hemos quitado de la comprobación)
-    
     # Si NO es negro (0), vuelve a intentarlo
-    # (Pero si es 3, 4, o 5, también se moverá. Oh...
-    # Tu petición original era "solo a bit negro")
-    # -> Restaurando la comprobación de solo negro
+    # (¡NO comprueba colisión con jugador aquí!)
     bne  $t9, $zero, red_dot_inner_loop
 
     # --- Movimiento Válido (a un '0') ---
@@ -347,6 +337,7 @@ check_collisions:
 check_collision_loop:
     bge  $s5, $s3, no_collision # Si (i >= N), estamos a salvo
     
+    # Cargar pos del fantasma[i]
     sll  $t7, $s5, 2
     add  $t8, $s4, $t7
     lw   $s6, 0($t8)       # $s6 = pos del fantasma
