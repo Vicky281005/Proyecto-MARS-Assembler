@@ -1,7 +1,7 @@
 .data
-# --- VARIABLE DE PUNTUACIÓN ---
+# --- VARIABLES ---
 player_score: .word 0
-score_prefix: .asciiz "Puntuacion: "
+# Sin mensajes de texto para mantener la consola limpia
 
 display: .space 1024
 paleta_colores:
@@ -10,7 +10,7 @@ paleta_colores:
     .word 0xFFFFFFFF  # 2: Blanco (Pac-Man)
     .word 0xFFFF00FF  # 3: Fucsia (Meta)
     .word 0xFF800080  # 4: Morado (Teleport)
-    .word 0xFFFFFF00  # 5: Amarillo
+    .word 0xFFFFFF00  # 5: Amarillo (Moneda)
     .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
     .word 0xFF00FF00  # 7: Verde (Color de Victoria)
 
@@ -33,21 +33,21 @@ game_over_map:
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
-# --- ¡NUEVA MATRIZ DE VICTORIA! ---
+# --- MATRIZ DE VICTORIA ---
 you_win_map:
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,0,0,0
-    .byte 0,7,0,7,0,7,0,7,0,7,0,7,0,0,0,0
-    .byte 0,0,7,0,0,7,0,7,0,7,0,7,0,0,0,0
-    .byte 0,0,7,0,0,7,0,7,0,7,0,7,0,0,0,0
-    .byte 0,0,7,0,0,7,7,7,0,7,7,7,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,7,0,7,0,7,7,7,0,0,7,0,7,0,0,0
+    .byte 0,7,0,7,0,7,0,7,0,0,7,0,7,0,0,0
+    .byte 0,7,0,7,0,7,0,7,0,0,7,0,7,0,0,0
+    .byte 0,0,7,0,0,7,7,7,0,0,0,7,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
-    .byte 0,7,0,7,0,0,7,0,0,7,7,7,0,7,0,0
-    .byte 0,7,0,7,0,0,7,0,0,7,7,7,0,7,0,0
-    .byte 0,7,7,7,0,0,7,0,0,7,7,7,0,0,0,0
-    .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
+    .byte 0,7,7,7,0,0,7,0,0,7,7,7,0,7,0,0
+    .byte 0,7,0,7,0,0,7,0,0,7,0,7,0,7,0,0
+    .byte 0,7,0,7,0,0,7,0,0,7,0,7,0,7,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -88,10 +88,10 @@ find_spot_blanco:
     li   $a1, 222
     syscall
     addi $a0, $a0, 18
-    add  $t6, $t0, $a0     
-    lb   $t5, 0($t6)       
+    add  $t6, $t0, $a0      
+    lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_blanco 
-    move $s0, $a0         # $s0 = pacman_pos_index
+    move $s0, $a0          # $s0 = pacman_pos_index
     li   $t5, 2
     sb   $t5, 0($t6)
 
@@ -101,8 +101,8 @@ find_spot_fucsia:
     li   $a1, 222
     syscall
     addi $a0, $a0, 18
-    add  $t6, $t0, $a0     
-    lb   $t5, 0($t6)       
+    add  $t6, $t0, $a0      
+    lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_fucsia 
     li   $t5, 3
     sb   $t5, 0($t6)
@@ -113,8 +113,8 @@ find_spot_morado:
     li   $a1, 222
     syscall
     addi $a0, $a0, 18
-    add  $t6, $t0, $a0     
-    lb   $t5, 0($t6)       
+    add  $t6, $t0, $a0      
+    lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_morado 
     li   $t5, 4
     sb   $t5, 0($t6)
@@ -124,7 +124,7 @@ find_spot_morado:
     li   $a1, 4            
     syscall
     addi $s1, $a0, 3      # $s1 = N (3-6)
-    li   $s2, 0            # $s2 = i (contador)
+    li   $s2, 0           # $s2 = i (contador)
 bucle_monedas:
     bge  $s2, $s1, fin_bucle_monedas
 find_spot_amarillo:
@@ -132,8 +132,8 @@ find_spot_amarillo:
     li   $a1, 222
     syscall
     addi $a0, $a0, 18
-    add  $t6, $t0, $a0     
-    lb   $t5, 0($t6)       
+    add  $t6, $t0, $a0      
+    lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_amarillo 
     li   $t5, 5
     sb   $t5, 0($t6)
@@ -148,7 +148,7 @@ fin_bucle_monedas:
     addi $s1, $a0, 2      # $s1 = N (2-4)
     la   $s3, num_red_dots
     sw   $s1, 0($s3)
-    li   $s2, 0            # $s2 = i (contador)
+    li   $s2, 0           # $s2 = i (contador)
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath 
 bucle_rojos:
@@ -158,16 +158,16 @@ find_spot_rojo:
     li   $a1, 222
     syscall
     addi $a0, $a0, 18
-    add  $t6, $t0, $a0     
-    lb   $t5, 0($t6)       
+    add  $t6, $t0, $a0      
+    lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_rojo 
     
-    sll  $t7, $s2, 2       
-    add  $t8, $s4, $t7     
+    sll  $t7, $s2, 2        
+    add  $t8, $s4, $t7      
     sw   $a0, 0($t8)
     
-    add  $t8, $s7, $s2     
-    sb   $zero, 0($t8)     
+    add  $t8, $s7, $s2      
+    sb   $zero, 0($t8)      
     
     li   $t5, 6
     sb   $t5, 0($t6)
@@ -188,28 +188,16 @@ game_loop:
     li   $t4, 256
 draw_loop_inner:
     bge  $t3, $t4, end_draw_loop_inner
-    lb   $t5, 0($t0)           
-    sll  $t6, $t5, 2           
-    add  $t6, $t6, $t1         
-    lw   $t7, 0($t6)           
-    sw   $t7, 0($t2)           
-    addi $t0, $t0, 1          
-    addi $t2, $t2, 4          
-    addi $t3, $t3, 1          
+    lb   $t5, 0($t0)            
+    sll  $t6, $t5, 2            
+    add  $t6, $t6, $t1          
+    lw   $t7, 0($t6)            
+    sw   $t7, 0($t2)            
+    addi $t0, $t0, 1           
+    addi $t2, $t2, 4           
+    addi $t3, $t3, 1           
     j    draw_loop_inner
 end_draw_loop_inner:
-
-    # --- 1.B IMPRIMIR PUNTUACIÓN ---
-    li   $v0, 4
-    la   $a0, score_prefix
-    syscall
-    li   $v0, 1
-    la   $t9, player_score
-    lw   $a0, 0($t9)
-    syscall
-    li   $v0, 11
-    li   $a0, '\n'
-    syscall
 
     # --- 2. REVISAR TECLADO (Syscall 12) ---
     li   $v0, 12
@@ -249,13 +237,13 @@ perform_move:
     li   $t9, 1
     beq  $t8, $t9, move_ghosts # Si es pared (1), no te muevas
     
-    # --- ¡¡NUEVA LÓGICA DE VICTORIA!! ---
+    # --- LÓGICA DE VICTORIA ---
     li   $t9, 3
     beq  $t8, $t9, you_win     # Si es Fucsia (3), GANASTE
     
     # Lógica de Teleport
     li   $t9, 4
-    bne  $t8, $t9, check_score 
+    bne  $t8, $t9, check_coin 
     add  $t7, $t0, $s0         
     sb   $zero, 0($t7)
 find_teleport_spot:
@@ -270,23 +258,34 @@ find_teleport_spot:
     move $s0, $a0             
     j    move_ghosts
     
-check_score:
-    # Lógica de Puntuación
-    li   $t9, 5
-    bne  $t8, $t9, normal_move  
-    la   $t9, player_score   
-    lw   $s1, 0($t9)           
-    addi $s1, $s1, 10         
-    sw   $s1, 0($t9)           
+check_coin:
+    li   $t9, 5                # 5 = Amarillo
+    bne  $t8, $t9, normal_move # Si no es amarillo, mueve normal
     
+    # 1. Imprimir "10" en la terminal
+    li   $a0, 10
+    li   $v0, 1
+    syscall
+    
+    # (Opcional) Imprimir salto de linea para que no se vea 101010
+    li   $a0, 10      # ASCII del salto de linea
+    li   $v0, 11
+    syscall
+
+    # 2. Sumar puntos internamente
+    la   $t9, player_score   
+    lw   $s1, 0($t9)            
+    addi $s1, $s1, 10         
+    sw   $s1, 0($t9)
+            
 normal_move:
-    # --- Movimiento Válido (a 0, 5, o 6) ---
+    # --- Movimiento Válido ---
     add  $t7, $t0, $s0         
-    sb   $zero, 0($t7)
+    sb   $zero, 0($t7)      # Borrar anterior
     li   $t5, 2
     add  $t7, $t0, $t6         
-    sb   $t5, 0($t7)
-    move $s0, $t6
+    sb   $t5, 0($t7)        # Poner nuevo (2)
+    move $s0, $t6           # Actualizar posición
 
 move_ghosts:
     # --- 4. MOVER FANTASMAS (PUNTOS ROJOS) ---
@@ -298,34 +297,14 @@ move_ghosts:
 red_dot_outer_loop:
     bge  $s5, $s3, check_collisions # Cuando terminen, ir a evaluar
     
-    sll  $t7, $s5, 2       
-    add  $t8, $s4, $t7     
+    sll  $t7, $s5, 2        
+    add  $t8, $s4, $t7      
     lw   $s6, 0($t8)       # $s6 = pos_actual del fantasma
     
-    # Pre-Chequeo
+    # Pre-Chequeo de 4 direcciones para ahorrar tiempo
     li   $s1, 0
     la   $t0, mapa_pacman
-    li   $t5, -16
-    add  $t6, $s6, $t5
-    add  $t7, $t0, $t6
-    lb   $t9, 0($t7)
-    beq  $t9, $zero, found_move
-    li   $t5, 16
-    add  $t6, $s6, $t5
-    add  $t7, $t0, $t6
-    lb   $t9, 0($t7)
-    beq  $t9, $zero, found_move
-    li   $t5, -1
-    add  $t6, $s6, $t5
-    add  $t7, $t0, $t6
-    lb   $t9, 0($t7)
-    beq  $t9, $zero, found_move
-    li   $t5, 1
-    add  $t6, $s6, $t5
-    add  $t7, $t0, $t6
-    lb   $t9, 0($t7)
-    beq  $t9, $zero, found_move
-    j    next_ghost
+    # (Omitido el pre-chequeo detallado, saltamos directo al intento aleatorio)
     
 found_move:
 red_dot_inner_loop:
@@ -356,26 +335,37 @@ check_red_move:
     add  $t7, $t0, $t6     
     lb   $t9, 0($t7)       # $t9 = valor en nueva_pos
     
-    # Si NO es negro (0), vuelve a intentarlo
-    bne  $t9, $zero, red_dot_inner_loop
+    # --- CORRECCION PARA PERMITIR MATAR AL JUGADOR ---
+    # Si es 0 (Negro), OK.
+    beq  $t9, $zero, do_ghost_move
+    
+    # Si es 2 (Jugador), OK (Matar).
+    li   $t1, 2
+    beq  $t9, $t1, do_ghost_move
+    
+    # Si es otra cosa (Pared, otro fantasma), intentar otra dirección.
+    j    red_dot_inner_loop
+    # ------------------------------------------------
 
-    # --- Movimiento Válido (a un '0') ---
+do_ghost_move:
+    # --- Movimiento Válido ---
     add  $s1, $s7, $s5     
-    lb   $t5, 0($s1)       
+    lb   $t5, 0($s1)       # Recuperar lo que había debajo del fantasma
     add  $t7, $t0, $s6     
-    sb   $t5, 0($t7)       
-    sb   $t9, 0($s1)       
+    sb   $t5, 0($t7)       # Restaurarlo en la posición vieja
+    
+    sb   $t9, 0($s1)       # Guardar lo que hay en la nueva (podría ser 0 o 2)
     li   $t5, 6
     add  $t7, $t0, $t6     
-    sb   $t5, 0($t7)
-    sw   $t6, 0($t8)       
+    sb   $t5, 0($t7)       # Poner fantasma en nueva posición
+    sw   $t6, 0($t8)       # Actualizar coordenadas en array
     
 next_ghost:
     addi $s5, $s5, 1      # i++
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # --- 5. EVALUAR COLISIONES ---
+    # --- 5. EVALUAR COLISIONES (AQUÍ SE DECIDE EL GAME OVER) ---
 check_collisions:
     la   $s3, num_red_dots
     lw   $s3, 0($s3)       # $s3 = N
@@ -388,7 +378,8 @@ check_collision_loop:
     add  $t8, $s4, $t7
     lw   $s6, 0($t8)       # $s6 = pos del fantasma
     
-    beq  $s0, $s6, game_over # Si pacman_pos == ghost_pos, game over
+    # COMPARACIÓN CLAVE: ¿Está el Pacman donde está el fantasma?
+    beq  $s0, $s6, game_over 
     
     addi $s5, $s5, 1      # i++
     j    check_collision_loop
@@ -406,34 +397,34 @@ game_over:
     li   $t4, 256
 game_over_draw_loop:
     bge  $t3, $t4, done
-    lb   $t5, 0($t0)           
-    sll  $t6, $t5, 2           
-    add  $t6, $t6, $t1         
-    lw   $t7, 0($t6)           
-    sw   $t7, 0($t2)           
-    addi $t0, $t0, 1          
-    addi $t2, $t2, 4          
-    addi $t3, $t3, 1          
+    lb   $t5, 0($t0)            
+    sll  $t6, $t5, 2            
+    add  $t6, $t6, $t1          
+    lw   $t7, 0($t6)            
+    sw   $t7, 0($t2)            
+    addi $t0, $t0, 1           
+    addi $t2, $t2, 4           
+    addi $t3, $t3, 1           
     j    game_over_draw_loop
 
-# --- ¡¡NUEVA SECCIÓN DE VICTORIA!! ---
+# --- SECCIÓN DE VICTORIA ---
 you_win:
-    # Dibuja la pantalla de "You Win"
+    # 1. Dibuja la pantalla de "You Win"
     la   $t0, you_win_map
     li   $t2, 0x10010000
     la   $t1, paleta_colores
     li   $t3, 0
     li   $t4, 256
 you_win_draw_loop:
-    bge  $t3, $t4, done      # Ir a 'done' (salir) cuando termine
-    lb   $t5, 0($t0)           
-    sll  $t6, $t5, 2           
-    add  $t6, $t6, $t1         
-    lw   $t7, 0($t6)           
-    sw   $t7, 0($t2)           
-    addi $t0, $t0, 1          
-    addi $t2, $t2, 4          
-    addi $t3, $t3, 1          
+    bge  $t3, $t4, done
+    lb   $t5, 0($t0)            
+    sll  $t6, $t5, 2            
+    add  $t6, $t6, $t1          
+    lw   $t7, 0($t6)            
+    sw   $t7, 0($t2)            
+    addi $t0, $t0, 1           
+    addi $t2, $t2, 4           
+    addi $t3, $t3, 1           
     j    you_win_draw_loop
 
 done:
