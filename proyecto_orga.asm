@@ -7,14 +7,32 @@ paleta_colores:
     .word 0xFFFF00FF  # 3: Fucsia
     .word 0xFF800080  # 4: Morado
     .word 0xFFFFFF00  # 5: Amarillo
-    .word 0xFFFF0000  # 6: Rojo (Fantasma)
+    .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
+
+# --- NUEVA MATRIZ PARA GAME OVER ---
+# Dibuja "GAME OVER" con 6s (Rojo)
+game_over_map:
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,6,6,6,0,6,6,6,0,6,6,6,0,6,6,0
+    .byte 0,6,0,0,0,6,0,6,0,6,6,6,0,6,0,0
+    .byte 0,6,0,0,0,6,6,6,0,6,0,6,0,6,6,0
+    .byte 0,6,0,6,0,6,0,6,0,6,0,6,0,6,0,0
+    .byte 0,6,6,6,0,6,0,6,0,6,0,6,0,6,6,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,6,6,6,0,6,0,6,0,6,6,0,6,6,6,0
+    .byte 0,6,0,6,0,6,0,6,0,6,0,0,6,0,6,0
+    .byte 0,6,0,6,0,6,0,6,0,6,6,0,6,6,6,0
+    .byte 0,6,0,6,0,6,0,6,0,6,0,0,6,6,0,0
+    .byte 0,6,6,6,0,0,6,0,0,6,6,0,6,0,6,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 # Almacenamiento para los Fantasmas
 num_red_dots: .word 0
-# Almacena el ÍNDICE (0-255) de cada fantasma
-red_dot_positions: .space 16  # Max 4 fantasmas (4 words)
-# Almacena el VALOR (0-5) que el fantasma está cubriendo
-red_dot_underneath: .space 4   # Max 4 fantasmas (4 bytes)
+red_dot_positions: .space 16  # Max 4 fantasmas
+red_dot_underneath: .space 4   # Max 4 fantasmas
 
 mapa_pacman:
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
@@ -43,6 +61,7 @@ main:
 
     # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO (Índice 2) ---
 find_spot_blanco:
+    # ... (código de setup para blanco) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -56,6 +75,7 @@ find_spot_blanco:
 
     # --- 2. BUSCAR LUGAR PARA PUNTO FUCSIA (Índice 3) ---
 find_spot_fucsia:
+    # ... (código para fucsia) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -68,6 +88,7 @@ find_spot_fucsia:
 
     # --- 3. BUSCAR LUGAR PARA PUNTO MORADO (Índice 4) ---
 find_spot_morado:
+    # ... (código para morado) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -79,6 +100,7 @@ find_spot_morado:
     sb   $t5, 0($t6)
 
     # --- 4. GENERAR 3-6 PUNTOS AMARILLOS (Índice 5) ---
+    # ... (código para amarillos) ...
     li   $v0, 42
     li   $a1, 4            
     syscall
@@ -101,6 +123,7 @@ find_spot_amarillo:
 fin_bucle_monedas:
 
     # --- 5. GENERAR 2-4 PUNTOS ROJOS (Índice 6) ---
+    # ... (código para rojos) ...
     li   $v0, 42
     li   $a1, 3            
     syscall
@@ -177,12 +200,10 @@ red_dot_outer_loop:
     lw   $s6, 0($t8)       # $s6 = índice de pos_actual del fantasma
 
 red_dot_inner_loop:
-    # Generar dirección aleatoria (0=Arriba, 1=Abajo, 2=Izquierda, 3=Derecha)
     li   $v0, 42
     li   $a1, 4
     syscall                # $a0 = 0, 1, 2, o 3
     
-    # Calcular desplazamiento
     beq  $a0, $zero, set_move_up_red
     li   $t7, 1
     beq  $a0, $t7, set_move_down_red
@@ -204,39 +225,28 @@ check_red_move:
     add  $t6, $s6, $t5     # $t6 = nueva_pos
     
     la   $t0, mapa_pacman
-    add  $t7, $t0, $t6     # $t7 = &mapa_pacman[nueva_pos]
+    add  $t7, $t0, $t6     
     lb   $t9, 0($t7)       # $t9 = valor en mapa_pacman[nueva_pos]
     
-    # --- ¡¡LÓGICA ACTUALIZADA!! ---
-    # Si la nueva posición NO es CERO (Negro),
-    # vuelve a buscar otra dirección.
+    # --- ¡¡LÓGICA DE COLISIÓN DEL FANTASMA!! ---
+    # Si choca con Pac-Man (2), GAME OVER
+    li   $t7, 2
+    beq  $t9, $t7, game_over
+    
+    # Si NO es negro (0), vuelve a intentarlo
     bne  $t9, $zero, red_dot_inner_loop
 
-    # --- LÓGICA DE MOVIMIENTO DE FANTASMA (Restaurar lo de abajo) ---
-    
-    # 1. Obtener puntero a red_dot_underneath[i]
-    add  $s1, $s7, $s5     # $s1 = &red_dot_underneath[i]
-    
-    # 2. Leer lo que el fantasma ESTABA cubriendo
-    lb   $t5, 0($s1)       # $t5 = old_underneath_value (e.g., 0, 5, etc.)
-    
-    # 3. Escribir ese valor de vuelta en la POSICIÓN ANTIGUA
-    add  $t7, $t0, $s6     # $t7 = &mapa_pacman[old_pos]
-    sb   $t5, 0($t7)       # mapa[old_pos] = old_underneath_value
-    
-    # 4. Guardar lo que el fantasma AHORA está cubriendo
-    #    ($t9 todavía tiene 0, porque es el único destino válido)
-    sb   $t9, 0($s1)       # red_dot_underneath[i] = 0
-    
-    # 5. Poner 6 (Rojo) en la POSICIÓN NUEVA
+    # --- Movimiento Válido (a un '0') ---
+    add  $s1, $s7, $s5     
+    lb   $t5, 0($s1)       
+    add  $t7, $t0, $s6     
+    sb   $t5, 0($t7)       
+    sb   $t9, 0($s1)       
     li   $t5, 6
-    add  $t7, $t0, $t6     # $t7 = &mapa_pacman[new_pos]
+    add  $t7, $t0, $t6     
     sb   $t5, 0($t7)
+    sw   $t6, 0($t8)       
     
-    # 6. Actualizar la posición guardada en el array
-    sw   $t6, 0($t8)       # red_dot_positions[i] = new_pos_index
-    
-    # Ir al siguiente fantasma
     addi $s5, $s5, 1      # i++
     j    red_dot_outer_loop
 end_red_dot_loop:
@@ -270,27 +280,46 @@ perform_move:
     add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
     lb   $t8, 0($t7)           # $t8 = valor en mapa_pacman[nueva_pos]
     
+    # --- ¡¡LÓGICA DE COLISIÓN DEL JUGADOR!! ---
     li   $t9, 1
     beq  $t8, $t9, no_input    # Si es pared (1), chocar
     
-    # (Aquí iría la lógica de 'comer' puntos o 'morir' si $t8 == 6)
+    # Si choca con Fantasma (6), GAME OVER
+    li   $t9, 6
+    beq  $t8, $t9, game_over
     
     # --- Movimiento Válido del Jugador ---
-    # 1. Poner 0 (Negro) en la posición ANTIGUA
     add  $t7, $t0, $s0         # $t7 = &mapa_pacman[pos_actual]
     sb   $zero, 0($t7)
-    
-    # 2. Poner 2 (Blanco) en la posición NUEVA
     li   $t5, 2
     add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
     sb   $t5, 0($t7)
-    
-    # 3. Actualizar la posición guardada de Pac-Man
     move $s0, $t6
 
 no_input:
     j    game_loop
     
+# --- NUEVA SECCIÓN DE GAME OVER ---
+game_over:
+    # Dibuja la pantalla de "Game Over" una vez
+    la   $t0, game_over_map
+    li   $t2, 0x10010000
+    la   $t1, paleta_colores
+    li   $t3, 0                # i = 0
+    li   $t4, 256              # Límite = 256
+game_over_draw_loop:
+    bge  $t3, $t4, done      # Ir a 'done' (salir) cuando termine
+    lb   $t5, 0($t0)           
+    sll  $t6, $t5, 2           
+    add  $t6, $t6, $t1         
+    lw   $t7, 0($t6)           
+    sw   $t7, 0($t2)           
+    addi $t0, $t0, 1          
+    addi $t2, $t2, 4          
+    addi $t3, $t3, 1          
+    j    game_over_draw_loop
+
 done:
+    # --- Fin del programa ---
     li   $v0, 10
     syscall
