@@ -206,17 +206,14 @@ draw_loop_inner:
 end_draw_loop_inner:
 
     # --- 1.5 IMPRIMIR PUNTUACIÓN ($s2) CADA TURNO ---
-    # Imprimir texto "Puntos: "
     la   $a0, msg_score
     li   $v0, 4
     syscall
     
-    # Imprimir valor de $s2
     move $a0, $s2
     li   $v0, 1
     syscall
     
-    # Imprimir salto de línea (estético)
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -284,7 +281,7 @@ check_coin:
     li   $t9, 5                # 5 = Amarillo
     bne  $t8, $t9, normal_move # Si no es amarillo, mueve normal
     
-    # 1. Imprimir "10" cuando comes moneda
+    # 1. Imprimir "10"
     li   $a0, 10
     li   $v0, 1
     syscall
@@ -299,6 +296,7 @@ check_coin:
             
 normal_move:
     # --- Movimiento Válido ---
+    la   $t0, mapa_pacman   # Recargar direccion base
     add  $t7, $t0, $s0         
     sb   $zero, 0($t7)      # Borrar anterior
     li   $t5, 2
@@ -381,7 +379,7 @@ next_ghost:
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # --- 5. EVALUAR COLISIONES (AQUÍ SE DECIDE EL GAME OVER) ---
+    # --- 5. EVALUAR COLISIONES ---
 check_collisions:
     la   $s3, num_red_dots
     lw   $s3, 0($s3)       # $s3 = N
@@ -394,7 +392,6 @@ check_collision_loop:
     add  $t8, $s4, $t7
     lw   $s6, 0($t8)       # $s6 = pos del fantasma
     
-    # COMPARACIÓN CLAVE: ¿Está el Pacman donde está el fantasma?
     beq  $s0, $s6, game_over 
     
     addi $s5, $s5, 1      # i++
@@ -424,6 +421,20 @@ game_over_draw_loop:
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
+    # --- NUEVO: IMPRIMIR PUNTUACIÓN FINAL ---
+    la   $a0, msg_score
+    li   $v0, 4
+    syscall
+    
+    move $a0, $s2
+    li   $v0, 1
+    syscall
+    
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+    # ----------------------------------------
+
     la   $t0, you_win_map
     li   $t2, 0x10010000
     la   $t1, paleta_colores
@@ -444,5 +455,4 @@ you_win_draw_loop:
 done:
     # --- Fin del programa ---
     li   $v0, 10
-    syscall
     syscall
