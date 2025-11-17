@@ -1,4 +1,8 @@
 .data
+# --- NUEVA VARIABLE ---
+player_score: .word 0
+score_prefix: .asciiz "Puntuacion: " # String para imprimir
+
 display: .space 1024
 paleta_colores:
     .word 0xFF000000  # 0: Negro
@@ -6,11 +10,10 @@ paleta_colores:
     .word 0xFFFFFFFF  # 2: Blanco (Pac-Man)
     .word 0xFFFF00FF  # 3: Fucsia
     .word 0xFF800080  # 4: Morado
-    .word 0xFFFFFF00  # 5: Amarillo
+    .word 0xFFFFFF00  # 5: Amarillo (Moneda)
     .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
 
 # --- NUEVA MATRIZ PARA GAME OVER ---
-# Dibuja "GAME OVER" con 6s (Rojo)
 game_over_map:
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,6,6,6,0,6,6,6,0,6,6,6,0,6,6,0
@@ -31,8 +34,8 @@ game_over_map:
 
 # Almacenamiento para los Fantasmas
 num_red_dots: .word 0
-red_dot_positions: .space 16  # Max 4 fantasmas
-red_dot_underneath: .space 4   # Max 4 fantasmas
+red_dot_positions: .space 16
+red_dot_underneath: .space 4
 
 mapa_pacman:
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
@@ -61,7 +64,6 @@ main:
 
     # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO (Índice 2) ---
 find_spot_blanco:
-    # ... (código de setup para blanco) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -75,7 +77,6 @@ find_spot_blanco:
 
     # --- 2. BUSCAR LUGAR PARA PUNTO FUCSIA (Índice 3) ---
 find_spot_fucsia:
-    # ... (código para fucsia) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -88,7 +89,6 @@ find_spot_fucsia:
 
     # --- 3. BUSCAR LUGAR PARA PUNTO MORADO (Índice 4) ---
 find_spot_morado:
-    # ... (código para morado) ...
     li   $v0, 42
     li   $a1, 222
     syscall
@@ -100,7 +100,6 @@ find_spot_morado:
     sb   $t5, 0($t6)
 
     # --- 4. GENERAR 3-6 PUNTOS AMARILLOS (Índice 5) ---
-    # ... (código para amarillos) ...
     li   $v0, 42
     li   $a1, 4            
     syscall
@@ -123,7 +122,6 @@ find_spot_amarillo:
 fin_bucle_monedas:
 
     # --- 5. GENERAR 2-4 PUNTOS ROJOS (Índice 6) ---
-    # ... (código para rojos) ...
     li   $v0, 42
     li   $a1, 3            
     syscall
@@ -143,14 +141,11 @@ find_spot_rojo:
     add  $t6, $t0, $a0     
     lb   $t5, 0($t6)       
     bne  $t5, $zero, find_spot_rojo 
-    
     sll  $t7, $s2, 2       
     add  $t8, $s4, $t7     
     sw   $a0, 0($t8)
-    
     add  $t8, $s7, $s2     
     sb   $zero, 0($t8)     
-    
     li   $t5, 6
     sb   $t5, 0($t6)
     addi $s2, $s2, 1
@@ -180,16 +175,79 @@ draw_loop_inner:
     addi $t3, $t3, 1          
     j    draw_loop_inner
 end_draw_loop_inner:
+    
+    # --- 1.B IMPRIMIR PUNTUACIÓN (Movido aquí) ---
+    li   $v0, 4
+    la   $a0, score_prefix
+    syscall
+    li   $v0, 1
+    la   $t9, player_score
+    lw   $a0, 0($t9)
+    syscall
+    li   $v0, 11
+    li   $a0, '\n'
+    syscall
 
     # --- 2. REVISAR TECLADO (Syscall 12) ---
     li   $v0, 12
     syscall
     move $t4, $v0          # $t4 = tecla
 
-    # --- 3. MOVER FANTASMAS (PUNTOS ROJOS) ---
+    # --- 3. ACTUALIZAR JUEGO (Comprobar W, A, S, D) ---
+    li   $t7, 119          # ASCII 'w'
+    beq  $t4, $t7, set_move_w
+    li   $t7, 97           # ASCII 'a'
+    beq  $t4, $t7, set_move_a
+    li   $t7, 115          # ASCII 's'
+    beq  $t4, $t7, set_move_s
+    li   $t7, 100          # ASCII 'd'
+    beq  $t4, $t7, set_move_d
+    j    no_player_move      # Si no es W,A,S,D, saltar mov. de jugador
+
+set_move_w:
+    li   $t5, -16
+    j    perform_move
+set_move_a:
+    li   $t5, -1
+    j    perform_move
+set_move_s:
+    li   $t5, 16
+    j    perform_move
+set_move_d:
+    li   $t5, 1
+    
+perform_move:
+    add  $t6, $s0, $t5         # $t6 = nueva_pos
+    la   $t0, mapa_pacman
+    add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
+    lb   $t8, 0($t7)           # $t8 = valor en mapa_pacman[nueva_pos]
+    
+    li   $t9, 1
+    beq  $t8, $t9, no_player_move # Si es pared (1), chocar
+    
+    # Si es moneda (5), sumar punto
+    li   $t9, 5
+    bne  $t8, $t9, not_a_coin  
+    la   $t9, player_score   
+    lw   $s1, 0($t9)           
+    addi $s1, $s1, 1          
+    sw   $s1, 0($t9)           
+not_a_coin:
+    
+    # --- Movimiento Válido del Jugador ---
+    # (No comprueba colisión con fantasma aquí)
+    add  $t7, $t0, $s0         # $t7 = &mapa_pacman[pos_actual]
+    sb   $zero, 0($t7)
+    li   $t5, 2
+    add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
+    sb   $t5, 0($t7)
+    move $s0, $t6
+
+no_player_move:
+    # --- 4. MOVER FANTASMAS (PUNTOS ROJOS) ---
     la   $s3, num_red_dots
-    lw   $s3, 0($s3)       # $s3 = N (número de fantasmas)
-    li   $s5, 0            # $s5 = i (contador)
+    lw   $s3, 0($s3)       # $s3 = N
+    li   $s5, 0            # $s5 = i
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath
 red_dot_outer_loop:
@@ -197,12 +255,38 @@ red_dot_outer_loop:
     
     sll  $t7, $s5, 2       
     add  $t8, $s4, $t7     
-    lw   $s6, 0($t8)       # $s6 = índice de pos_actual del fantasma
-
+    lw   $s6, 0($t8)       # $s6 = pos_actual del fantasma
+    
+    # --- Pre-Chequeo de Fantasma ---
+    li   $s1, 0            # $s1 = found_valid_move = 0
+    la   $t0, mapa_pacman
+    li   $t5, -16
+    add  $t6, $s6, $t5
+    add  $t7, $t0, $t6
+    lb   $t9, 0($t7)
+    beq  $t9, $zero, found_move
+    li   $t5, 16
+    add  $t6, $s6, $t5
+    add  $t7, $t0, $t6
+    lb   $t9, 0($t7)
+    beq  $t9, $zero, found_move
+    li   $t5, -1
+    add  $t6, $s6, $t5
+    add  $t7, $t0, $t6
+    lb   $t9, 0($t7)
+    beq  $t9, $zero, found_move
+    li   $t5, 1
+    add  $t6, $s6, $t5
+    add  $t7, $t0, $t6
+    lb   $t9, 0($t7)
+    beq  $t9, $zero, found_move
+    j    next_ghost
+    
+found_move:
 red_dot_inner_loop:
     li   $v0, 42
     li   $a1, 4
-    syscall                # $a0 = 0, 1, 2, o 3
+    syscall
     
     beq  $a0, $zero, set_move_up_red
     li   $t7, 1
@@ -223,17 +307,11 @@ set_move_left_red:
 
 check_red_move:
     add  $t6, $s6, $t5     # $t6 = nueva_pos
-    
     la   $t0, mapa_pacman
     add  $t7, $t0, $t6     
-    lb   $t9, 0($t7)       # $t9 = valor en mapa_pacman[nueva_pos]
+    lb   $t9, 0($t7)       # $t9 = valor en nueva_pos
     
-    # --- ¡¡LÓGICA DE COLISIÓN DEL FANTASMA!! ---
-    # Si choca con Pac-Man (2), GAME OVER
-    li   $t7, 2
-    beq  $t9, $t7, game_over
-    
-    # Si NO es negro (0), vuelve a intentarlo
+    # Solo se mueve a negro
     bne  $t9, $zero, red_dot_inner_loop
 
     # --- Movimiento Válido (a un '0') ---
@@ -247,68 +325,46 @@ check_red_move:
     sb   $t5, 0($t7)
     sw   $t6, 0($t8)       
     
+next_ghost:
     addi $s5, $s5, 1      # i++
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # --- 4. ACTUALIZAR JUEGO (Comprobar W, A, S, D) ---
-    li   $t7, 119          # ASCII 'w'
-    beq  $t4, $t7, set_move_w
-    li   $t7, 97           # ASCII 'a'
-    beq  $t4, $t7, set_move_a
-    li   $t7, 115          # ASCII 's'
-    beq  $t4, $t7, set_move_s
-    li   $t7, 100          # ASCII 'd'
-    beq  $t4, $t7, set_move_d
-    j    no_input
+    # --- 5. EVALUAR COLISIONES (¡NUEVO!) ---
+    # Comprobar si la posición de Pac-Man ($s0)
+    # es igual a la de algún fantasma
+    
+    la   $s3, num_red_dots
+    lw   $s3, 0($s3)       # $s3 = N
+    li   $s5, 0            # $s5 = i
+    la   $s4, red_dot_positions
+check_collision_loop:
+    bge  $s5, $s3, no_collision # Si (i >= N), estamos a salvo
+    
+    # Cargar pos del fantasma[i]
+    sll  $t7, $s5, 2
+    add  $t8, $s4, $t7
+    lw   $s6, 0($t8)       # $s6 = pos del fantasma
+    
+    # Si pacman_pos == ghost_pos, game over
+    beq  $s0, $s6, game_over
+    
+    addi $s5, $s5, 1      # i++
+    j    check_collision_loop
 
-set_move_w:
-    li   $t5, -16
-    j    perform_move
-set_move_a:
-    li   $t5, -1
-    j    perform_move
-set_move_s:
-    li   $t5, 16
-    j    perform_move
-set_move_d:
-    li   $t5, 1
-    
-perform_move:
-    add  $t6, $s0, $t5         # $t6 = nueva_pos
-    la   $t0, mapa_pacman
-    add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
-    lb   $t8, 0($t7)           # $t8 = valor en mapa_pacman[nueva_pos]
-    
-    # --- ¡¡LÓGICA DE COLISIÓN DEL JUGADOR!! ---
-    li   $t9, 1
-    beq  $t8, $t9, no_input    # Si es pared (1), chocar
-    
-    # Si choca con Fantasma (6), GAME OVER
-    li   $t9, 6
-    beq  $t8, $t9, game_over
-    
-    # --- Movimiento Válido del Jugador ---
-    add  $t7, $t0, $s0         # $t7 = &mapa_pacman[pos_actual]
-    sb   $zero, 0($t7)
-    li   $t5, 2
-    add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
-    sb   $t5, 0($t7)
-    move $s0, $t6
-
-no_input:
+no_collision:
     j    game_loop
     
-# --- NUEVA SECCIÓN DE GAME OVER ---
+# --- SECCIÓN DE GAME OVER ---
 game_over:
     # Dibuja la pantalla de "Game Over" una vez
     la   $t0, game_over_map
     li   $t2, 0x10010000
     la   $t1, paleta_colores
-    li   $t3, 0                # i = 0
-    li   $t4, 256              # Límite = 256
+    li   $t3, 0
+    li   $t4, 256
 game_over_draw_loop:
-    bge  $t3, $t4, done      # Ir a 'done' (salir) cuando termine
+    bge  $t3, $t4, done
     lb   $t5, 0($t0)           
     sll  $t6, $t5, 2           
     add  $t6, $t6, $t1         
