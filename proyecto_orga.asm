@@ -7,7 +7,14 @@ paleta_colores:
     .word 0xFFFF00FF  # 3: Fucsia
     .word 0xFF800080  # 4: Morado
     .word 0xFFFFFF00  # 5: Amarillo
-    .word 0xFFFF0000  # 6: Rojo
+    .word 0xFFFF0000  # 6: Rojo (Fantasma)
+
+# Almacenamiento para los Fantasmas
+num_red_dots: .word 0
+# Almacena el ÍNDICE (0-255) de cada fantasma
+red_dot_positions: .space 16  # Max 4 fantasmas (4 words)
+# Almacena el VALOR (0-5) que el fantasma está cubriendo
+red_dot_underneath: .space 4   # Max 4 fantasmas (4 bytes)
 
 mapa_pacman:
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
@@ -31,10 +38,8 @@ mapa_pacman:
 .globl main
 
 main:
-    # --- Cargar Direcciones Base ---
+    # --- Cargar Dirección Base ---
     la   $t0, mapa_pacman
-    la   $t1, paleta_colores
-    li   $t2, 0x10010000
 
     # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO (Índice 2) ---
 find_spot_blanco:
@@ -100,7 +105,11 @@ fin_bucle_monedas:
     li   $a1, 3            
     syscall
     addi $s1, $a0, 2      # $s1 = N (2-4)
+    la   $s3, num_red_dots
+    sw   $s1, 0($s3)
     li   $s2, 0            # $s2 = i (contador)
+    la   $s4, red_dot_positions
+    la   $s7, red_dot_underneath 
 bucle_rojos:
     bge  $s2, $s1, fin_bucle_rojos
 find_spot_rojo:
@@ -111,6 +120,14 @@ find_spot_rojo:
     add  $t6, $t0, $a0     
     lb   $t5, 0($t6)       
     bne  $t5, $zero, find_spot_rojo 
+    
+    sll  $t7, $s2, 2       
+    add  $t8, $s4, $t7     
+    sw   $a0, 0($t8)
+    
+    add  $t8, $s7, $s2     
+    sb   $zero, 0($t8)     
+    
     li   $t5, 6
     sb   $t5, 0($t6)
     addi $s2, $s2, 1
@@ -126,8 +143,8 @@ game_loop:
     la   $t0, mapa_pacman
     li   $t2, 0x10010000
     la   $t1, paleta_colores
-    li   $t3, 0                # i = 0
-    li   $t4, 256              # Límite = 256
+    li   $t3, 0
+    li   $t4, 256
 draw_loop_inner:
     bge  $t3, $t4, end_draw_loop_inner
     lb   $t5, 0($t0)           
@@ -142,60 +159,129 @@ draw_loop_inner:
 end_draw_loop_inner:
 
     # --- 2. REVISAR TECLADO (Syscall 12) ---
-    li   $v0, 12           # Syscall: Leer Carácter
-    syscall                # El programa SE DETIENE aquí
+    li   $v0, 12
+    syscall
     move $t4, $v0          # $t4 = tecla
 
-    # --- 3. ACTUALIZAR JUEGO (Comprobar W, A, S, D) ---
-    # $t5 = el desplazamiento (offset) a usar
+    # --- 3. MOVER FANTASMAS (PUNTOS ROJOS) ---
+    la   $s3, num_red_dots
+    lw   $s3, 0($s3)       # $s3 = N (número de fantasmas)
+    li   $s5, 0            # $s5 = i (contador)
+    la   $s4, red_dot_positions
+    la   $s7, red_dot_underneath
+red_dot_outer_loop:
+    bge  $s5, $s3, end_red_dot_loop # Si (i >= N), terminar
     
+    sll  $t7, $s5, 2       
+    add  $t8, $s4, $t7     
+    lw   $s6, 0($t8)       # $s6 = índice de pos_actual del fantasma
+
+red_dot_inner_loop:
+    # Generar dirección aleatoria (0=Arriba, 1=Abajo, 2=Izquierda, 3=Derecha)
+    li   $v0, 42
+    li   $a1, 4
+    syscall                # $a0 = 0, 1, 2, o 3
+    
+    # Calcular desplazamiento
+    beq  $a0, $zero, set_move_up_red
+    li   $t7, 1
+    beq  $a0, $t7, set_move_down_red
+    li   $t7, 2
+    beq  $a0, $t7, set_move_left_red
+set_move_right_red:
+    li   $t5, 1
+    j    check_red_move
+set_move_up_red:
+    li   $t5, -16
+    j    check_red_move
+set_move_down_red:
+    li   $t5, 16
+    j    check_red_move
+set_move_left_red:
+    li   $t5, -1
+
+check_red_move:
+    add  $t6, $s6, $t5     # $t6 = nueva_pos
+    
+    la   $t0, mapa_pacman
+    add  $t7, $t0, $t6     # $t7 = &mapa_pacman[nueva_pos]
+    lb   $t9, 0($t7)       # $t9 = valor en mapa_pacman[nueva_pos]
+    
+    # --- ¡¡LÓGICA ACTUALIZADA!! ---
+    # Si la nueva posición NO es CERO (Negro),
+    # vuelve a buscar otra dirección.
+    bne  $t9, $zero, red_dot_inner_loop
+
+    # --- LÓGICA DE MOVIMIENTO DE FANTASMA (Restaurar lo de abajo) ---
+    
+    # 1. Obtener puntero a red_dot_underneath[i]
+    add  $s1, $s7, $s5     # $s1 = &red_dot_underneath[i]
+    
+    # 2. Leer lo que el fantasma ESTABA cubriendo
+    lb   $t5, 0($s1)       # $t5 = old_underneath_value (e.g., 0, 5, etc.)
+    
+    # 3. Escribir ese valor de vuelta en la POSICIÓN ANTIGUA
+    add  $t7, $t0, $s6     # $t7 = &mapa_pacman[old_pos]
+    sb   $t5, 0($t7)       # mapa[old_pos] = old_underneath_value
+    
+    # 4. Guardar lo que el fantasma AHORA está cubriendo
+    #    ($t9 todavía tiene 0, porque es el único destino válido)
+    sb   $t9, 0($s1)       # red_dot_underneath[i] = 0
+    
+    # 5. Poner 6 (Rojo) en la POSICIÓN NUEVA
+    li   $t5, 6
+    add  $t7, $t0, $t6     # $t7 = &mapa_pacman[new_pos]
+    sb   $t5, 0($t7)
+    
+    # 6. Actualizar la posición guardada en el array
+    sw   $t6, 0($t8)       # red_dot_positions[i] = new_pos_index
+    
+    # Ir al siguiente fantasma
+    addi $s5, $s5, 1      # i++
+    j    red_dot_outer_loop
+end_red_dot_loop:
+
+    # --- 4. ACTUALIZAR JUEGO (Comprobar W, A, S, D) ---
     li   $t7, 119          # ASCII 'w'
     beq  $t4, $t7, set_move_w
-    
     li   $t7, 97           # ASCII 'a'
     beq  $t4, $t7, set_move_a
-    
     li   $t7, 115          # ASCII 's'
     beq  $t4, $t7, set_move_s
-    
     li   $t7, 100          # ASCII 'd'
     beq  $t4, $t7, set_move_d
-    
-    # Ninguna tecla válida, volver a dibujar
     j    no_input
 
 set_move_w:
-    li   $t5, -16          # Desplazamiento = -16 (Arriba)
+    li   $t5, -16
     j    perform_move
 set_move_a:
-    li   $t5, -1           # Desplazamiento = -1 (Izquierda)
+    li   $t5, -1
     j    perform_move
 set_move_s:
-    li   $t5, 16           # Desplazamiento = +16 (Abajo)
+    li   $t5, 16
     j    perform_move
 set_move_d:
-    li   $t5, 1            # Desplazamiento = +1 (Derecha)
-    j    perform_move
-
-perform_move:
-    # $s0 = pos_actual_indice
-    # $t5 = desplazamiento
-    add  $t6, $s0, $t5         # $t6 = nueva_pos = pos_actual + desplazamiento
+    li   $t5, 1
     
-    # Comprobar si la nueva_pos es negra (0)
-    la   $t0, mapa_pacman      # Recargar base del mapa
+perform_move:
+    add  $t6, $s0, $t5         # $t6 = nueva_pos
+    la   $t0, mapa_pacman
     add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
     lb   $t8, 0($t7)           # $t8 = valor en mapa_pacman[nueva_pos]
     
-    bne  $t8, $zero, no_input  # Si no es negro (0), choca con pared
+    li   $t9, 1
+    beq  $t8, $t9, no_input    # Si es pared (1), chocar
     
-    # --- Movimiento Válido ---
+    # (Aquí iría la lógica de 'comer' puntos o 'morir' si $t8 == 6)
+    
+    # --- Movimiento Válido del Jugador ---
     # 1. Poner 0 (Negro) en la posición ANTIGUA
     add  $t7, $t0, $s0         # $t7 = &mapa_pacman[pos_actual]
     sb   $zero, 0($t7)
     
     # 2. Poner 2 (Blanco) en la posición NUEVA
-    li   $t5, 2                # 2 = Blanco
+    li   $t5, 2
     add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
     sb   $t5, 0($t7)
     
@@ -203,9 +289,8 @@ perform_move:
     move $s0, $t6
 
 no_input:
-    j    game_loop             # Repetir el bucle del juego
+    j    game_loop
     
-# --- Fin del programa (nunca se alcanza) ---
 done:
     li   $v0, 10
     syscall
