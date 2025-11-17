@@ -1,8 +1,10 @@
 .data
 # --- VARIABLES ---
 player_score: .word 0
+
 # --- TEXTOS PARA CONSOLA ---
 msg_score:    .asciiz "\nPuntos: "
+msg_hex:      .asciiz " Hex: 0x"
 newline:      .asciiz "\n"
 
 display: .space 1024
@@ -205,15 +207,46 @@ draw_loop_inner:
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # --- 1.5 IMPRIMIR PUNTUACIÓN ($s2) CADA TURNO ---
+    # --- 1.5 IMPRIMIR PUNTUACIÓN (BLOG STYLE CORREGIDO) ---
+    
+    # Imprimir texto "Puntos: "
     la   $a0, msg_score
     li   $v0, 4
     syscall
     
+    # Imprimir valor Decimal
     move $a0, $s2
     li   $v0, 1
     syscall
     
+    # Imprimir texto " Hex: 0x"
+    la   $a0, msg_hex
+    li   $v0, 4
+    syscall
+    
+    # --- INICIO BLOQUE HEX MANUAL ---
+    move $t8, $s2       # Copia del valor
+    li   $t9, 28        # Shift inicial
+hex_loop_1:
+    srlv $a0, $t8, $t9  # Shift Variable
+    andi $a0, $a0, 0xF  # Mascarar
+    
+    # Lógica optimizada del blog
+    slti $t1, $a0, 10      
+    bne  $t1, $zero, print_digit_1 
+    addi $a0, $a0, 7       # Offset para letras (A-F)
+
+print_digit_1:
+    addi $a0, $a0, 48      # Offset base para números (0-9)
+    
+    li   $v0, 11           # Imprimir caracter
+    syscall
+    
+    subi $t9, $t9, 4
+    bge  $t9, $zero, hex_loop_1
+    # --- FIN BLOQUE HEX ---
+    
+    # Salto de línea
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -281,7 +314,7 @@ check_coin:
     li   $t9, 5                # 5 = Amarillo
     bne  $t8, $t9, normal_move # Si no es amarillo, mueve normal
     
-    # 1. Imprimir "10"
+    # 1. Imprimir "10" cuando comes moneda
     li   $a0, 10
     li   $v0, 1
     syscall
@@ -304,6 +337,28 @@ normal_move:
     sb   $t5, 0($t7)        # Poner nuevo (2)
     move $s0, $t6           # Actualizar posición
 
+    # =====================================================================
+    # --- NUEVA VERIFICACIÓN DE COLISIÓN #1 (DESPUES DEL MOVIMIENTO JUGADOR) ---
+    # =====================================================================
+check_collision_after_player:
+    la   $s3, num_red_dots
+    lw   $s3, 0($s3)        # $s3 = Cantidad de fantasmas
+    li   $s5, 0             # $s5 = iterador (i)
+    la   $s4, red_dot_positions
+    
+check_loop_1:
+    bge  $s5, $s3, move_ghosts # Si recorrimos todos y no hay choque, mover fantasmas
+    
+    sll  $t7, $s5, 2
+    add  $t8, $s4, $t7
+    lw   $s6, 0($t8)        # $s6 = posición del fantasma [i]
+    
+    # Comparar Posicion Jugador ($s0) vs Fantasma ($s6)
+    beq  $s0, $s6, game_over 
+    
+    addi $s5, $s5, 1        # i++
+    j    check_loop_1
+
 move_ghosts:
     # --- 4. MOVER FANTASMAS (PUNTOS ROJOS) ---
     la   $s3, num_red_dots
@@ -312,7 +367,7 @@ move_ghosts:
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath
 red_dot_outer_loop:
-    bge  $s5, $s3, check_collisions # Cuando terminen, ir a evaluar
+    bge  $s5, $s3, check_collisions_2 # Cuando terminen, ir a evaluar colision 2
     
     sll  $t7, $s5, 2        
     add  $t8, $s4, $t7      
@@ -379,23 +434,26 @@ next_ghost:
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # --- 5. EVALUAR COLISIONES ---
-check_collisions:
+    # =====================================================================
+    # --- VERIFICACIÓN DE COLISIÓN #2 (DESPUES DE MOVER FANTASMAS) ---
+    # =====================================================================
+check_collisions_2:
     la   $s3, num_red_dots
     lw   $s3, 0($s3)       # $s3 = N
     li   $s5, 0            # $s5 = i
     la   $s4, red_dot_positions
-check_collision_loop:
+check_collision_loop_2:
     bge  $s5, $s3, no_collision # Si (i >= N), estamos a salvo
     
     sll  $t7, $s5, 2
     add  $t8, $s4, $t7
     lw   $s6, 0($t8)       # $s6 = pos del fantasma
     
+    # COMPARACIÓN CLAVE
     beq  $s0, $s6, game_over 
     
     addi $s5, $s5, 1      # i++
-    j    check_collision_loop
+    j    check_collision_loop_2
 
 no_collision:
     j    game_loop
@@ -421,7 +479,7 @@ game_over_draw_loop:
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
-    # --- NUEVO: IMPRIMIR PUNTUACIÓN FINAL ---
+    # --- IMPRIMIR PUNTUACIÓN FINAL ---
     la   $a0, msg_score
     li   $v0, 4
     syscall
@@ -430,10 +488,34 @@ you_win:
     li   $v0, 1
     syscall
     
+    la   $a0, msg_hex
+    li   $v0, 4
+    syscall
+    
+    # --- BLOQUE HEX MANUAL EN VICTORIA ---
+    move $t8, $s2
+    li   $t9, 28
+hex_loop_2:
+    srlv $a0, $t8, $t9
+    andi $a0, $a0, 0xF
+    
+    slti $t1, $a0, 10
+    bne  $t1, $zero, print_digit_2
+    addi $a0, $a0, 7
+
+print_digit_2:
+    addi $a0, $a0, 48
+    
+    li   $v0, 11
+    syscall
+    
+    subi $t9, $t9, 4
+    bge  $t9, $zero, hex_loop_2
+    # --- FIN BLOQUE HEX ---
+    
     la   $a0, newline
     li   $v0, 4
     syscall
-    # ----------------------------------------
 
     la   $t0, you_win_map
     li   $t2, 0x10010000
