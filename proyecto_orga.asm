@@ -1,7 +1,8 @@
 .data
 # --- VARIABLES ---
+# (Nota: player_score en memoria sigue existiendo si quieres guardarlo al final, 
+# pero ahora el conteo vivo estará en el registro $s2)
 player_score: .word 0
-# Sin mensajes de texto para mantener la consola limpia
 
 display: .space 1024
 paleta_colores:
@@ -177,6 +178,10 @@ fin_bucle_rojos:
     # --- FIN DE LA CONFIGURACIÓN ---
 
 
+# --- INICIALIZAR REGISTRO DE PUNTUACIÓN ($s2) ---
+    li   $s2, 0        # $s2 será nuestro contador de puntos
+
+
 # --- BUCLE PRINCIPAL DEL JUEGO ---
 game_loop:
 
@@ -267,16 +272,13 @@ check_coin:
     li   $v0, 1
     syscall
     
-    # (Opcional) Imprimir salto de linea para que no se vea 101010
-    li   $a0, 10      # ASCII del salto de linea
+    # Imprimir salto de linea
+    li   $a0, 10      
     li   $v0, 11
     syscall
 
-    # 2. Sumar puntos internamente
-    la   $t9, player_score   
-    lw   $s1, 0($t9)            
-    addi $s1, $s1, 10         
-    sw   $s1, 0($t9)
+    # 2. SUMAR PUNTOS EN REGISTRO $s2
+    addi $s2, $s2, 10         # $s2 += 10
             
 normal_move:
     # --- Movimiento Válido ---
@@ -301,10 +303,9 @@ red_dot_outer_loop:
     add  $t8, $s4, $t7      
     lw   $s6, 0($t8)       # $s6 = pos_actual del fantasma
     
-    # Pre-Chequeo de 4 direcciones para ahorrar tiempo
+    # Pre-Chequeo
     li   $s1, 0
     la   $t0, mapa_pacman
-    # (Omitido el pre-chequeo detallado, saltamos directo al intento aleatorio)
     
 found_move:
 red_dot_inner_loop:
@@ -335,7 +336,6 @@ check_red_move:
     add  $t7, $t0, $t6     
     lb   $t9, 0($t7)       # $t9 = valor en nueva_pos
     
-    # --- CORRECCION PARA PERMITIR MATAR AL JUGADOR ---
     # Si es 0 (Negro), OK.
     beq  $t9, $zero, do_ghost_move
     
@@ -343,9 +343,8 @@ check_red_move:
     li   $t1, 2
     beq  $t9, $t1, do_ghost_move
     
-    # Si es otra cosa (Pared, otro fantasma), intentar otra dirección.
+    # Si no, intentar otra direccion
     j    red_dot_inner_loop
-    # ------------------------------------------------
 
 do_ghost_move:
     # --- Movimiento Válido ---
@@ -365,7 +364,7 @@ next_ghost:
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # --- 5. EVALUAR COLISIONES (AQUÍ SE DECIDE EL GAME OVER) ---
+    # --- 5. EVALUAR COLISIONES ---
 check_collisions:
     la   $s3, num_red_dots
     lw   $s3, 0($s3)       # $s3 = N
@@ -378,7 +377,6 @@ check_collision_loop:
     add  $t8, $s4, $t7
     lw   $s6, 0($t8)       # $s6 = pos del fantasma
     
-    # COMPARACIÓN CLAVE: ¿Está el Pacman donde está el fantasma?
     beq  $s0, $s6, game_over 
     
     addi $s5, $s5, 1      # i++
@@ -389,7 +387,6 @@ no_collision:
     
 # --- SECCIÓN DE GAME OVER ---
 game_over:
-    # Dibuja la pantalla de "Game Over"
     la   $t0, game_over_map
     li   $t2, 0x10010000
     la   $t1, paleta_colores
@@ -409,7 +406,6 @@ game_over_draw_loop:
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
-    # 1. Dibuja la pantalla de "You Win"
     la   $t0, you_win_map
     li   $t2, 0x10010000
     la   $t1, paleta_colores
