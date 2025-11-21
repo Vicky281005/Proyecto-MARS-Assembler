@@ -1,11 +1,10 @@
 .data
-# --- VARIABLES ---
 player_score: .word 0
 
 # --- TEXTOS PARA CONSOLA ---
-msg_score:    .asciiz "\nPuntos: "
-msg_hex:      .asciiz " Hex: 0x"
-newline:      .asciiz "\n"
+msg_score:.asciiz "\nPuntos: "
+msg_hex:.asciiz "Hex: 0x"    # Le quité el espacio inicial para que se alinee bien
+newline:.asciiz "\n"
 
 display: .space 1024
 paleta_colores:
@@ -41,16 +40,16 @@ game_over_map:
 you_win_map:
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,7,0,7,0,7,7,7,0,0,7,0,7,0,0,0
-    .byte 0,7,0,7,0,7,0,7,0,0,7,0,7,0,0,0
-    .byte 0,7,0,7,0,7,0,7,0,0,7,0,7,0,0,0
-    .byte 0,0,7,0,0,7,7,7,0,0,0,7,0,0,0,0
+    .byte 0,0,7,0,7,0,7,7,7,0,7,0,7,0,0,0
+    .byte 0,0,7,0,7,0,7,0,7,0,7,0,7,0,0,0
+    .byte 0,0,7,0,7,0,7,0,7,0,7,0,7,0,0,0
+    .byte 0,0,0,7,0,0,7,0,7,0,7,0,7,0,0,0
+    .byte 0,0,0,7,0,0,7,7,7,0,7,7,7,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
-    .byte 0,7,7,7,0,0,7,0,0,7,7,7,0,7,0,0
-    .byte 0,7,0,7,0,0,7,0,0,7,0,7,0,7,0,0
-    .byte 0,7,0,7,0,0,7,0,0,7,0,7,0,7,0,0
+    .byte 0,7,0,7,0,0,7,0,0,7,7,7,0,7,0,0
+    .byte 0,7,7,7,0,0,7,0,0,7,0,7,0,7,0,0
+    .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -219,7 +218,13 @@ end_draw_loop_inner:
     li   $v0, 1
     syscall
     
-    # Imprimir texto " Hex: 0x"
+    # --- SALTO DE LÍNEA ENTRE ENTERO Y HEX ---
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+    # ------------------------------------------
+
+    # Imprimir texto "Hex: 0x"
     la   $a0, msg_hex
     li   $v0, 4
     syscall
@@ -246,7 +251,7 @@ print_digit_1:
     bge  $t9, $zero, hex_loop_1
     # --- FIN BLOQUE HEX ---
     
-    # Salto de línea
+    # Salto de línea final del turno
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -488,6 +493,11 @@ you_win:
     li   $v0, 1
     syscall
     
+    # --- SALTO DE LINEA ---
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+
     la   $a0, msg_hex
     li   $v0, 4
     syscall
