@@ -18,6 +18,7 @@ player_score: .word 0
 msg_score:    .asciiz "Dec: " 
 msg_hex:      .asciiz "Hex: 0x" 
 msg_oct:      .asciiz "Oct: 0o"
+msg_bin:      .asciiz "Bin: 0b"
 newline:      .asciiz "\n"
 
 # --- MATRIZ DE GAME OVER ---
@@ -229,7 +230,6 @@ print_digit_hex_1:
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_1
     
-    # Salto de linea
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -242,40 +242,64 @@ print_digit_hex_1:
     syscall
 
     move $a0, $s2     
-    li   $v0, 1       # Syscall 1 = Print Integer
+    li   $v0, 1       
     syscall
 
-    # Salto de linea
     la   $a0, newline
     li   $v0, 4
     syscall
 
     # ================================
-    # 3. IMPRIMIR OCTAL (Manual)
+    # 3. IMPRIMIR OCTAL
     # ================================
     la   $a0, msg_oct
     li   $v0, 4
     syscall
 
-    move $t8, $s2     # Copiar puntaje
-    li   $t9, 30      # Shift inicial (32 bits / 3 = 10 grupos, empieza en bit 30)
+    move $t8, $s2     
+    li   $t9, 30      
     
 oct_loop_1:
     srlv $a0, $t8, $t9
-    andi $a0, $a0, 0x7  # Mascara de 3 bits (111 binario = 7)
+    andi $a0, $a0, 0x7  
 
-    addi $a0, $a0, 48   # Convertir a ASCII
+    addi $a0, $a0, 48   
     li   $v0, 11
     syscall
 
-    subi $t9, $t9, 3    # Restar 3 al shift
+    subi $t9, $t9, 3    
     bge  $t9, $zero, oct_loop_1
 
-    # Salto de linea final
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+
+    # ================================
+    # 4. IMPRIMIR BINARIO
+    # ================================
+    la   $a0, msg_bin
+    li   $v0, 4
+    syscall
+
+    move $t8, $s2     # Copiar puntaje
+    li   $t9, 31      # Empezamos en el bit 31 (más significativo)
+
+bin_loop_1:
+    srlv $a0, $t8, $t9    # Mover bit deseado a la posición 0
+    andi $a0, $a0, 1      # Aislarlo (AND 1)
+    
+    addi $a0, $a0, 48     # Convertir 0 o 1 a ASCII
+    li   $v0, 11
+    syscall
+
+    subi $t9, $t9, 1      # Siguiente bit a la derecha
+    bge  $t9, $zero, bin_loop_1
+
     la   $a0, newline
     li   $v0, 4
     syscall
     # ================================
+
 
     # --- KEYBOARD INPUT ---
     li   $v0, 12
@@ -542,6 +566,30 @@ oct_loop_2:
     la   $a0, newline
     li   $v0, 4
     syscall
+    
+    # 4. IMPRIMIR BINARIO (VICTORIA)
+    la   $a0, msg_bin
+    li   $v0, 4
+    syscall
+
+    move $t8, $s2
+    li   $t9, 31
+
+bin_loop_2:
+    srlv $a0, $t8, $t9
+    andi $a0, $a0, 1
+    
+    addi $a0, $a0, 48
+    li   $v0, 11
+    syscall
+
+    subi $t9, $t9, 1
+    bge  $t9, $zero, bin_loop_2
+
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+    # ==============================
 
     # DIBUJAR PANTALLA WIN
     la   $t0, you_win_map
