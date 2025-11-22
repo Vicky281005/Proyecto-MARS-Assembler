@@ -16,6 +16,7 @@ paleta_colores:
 # --- VARIABLES Y TEXTOS ---
 player_score: .word 0
 msg_win:      .asciiz "\nYOU WIN\n"
+msg_gameover: .asciiz "\nGAME OVER\n"  # <--- NUEVO MENSAJE
 msg_score:    .asciiz "Dec: " 
 msg_hex:      .asciiz "Hex: 0x" 
 msg_oct:      .asciiz "Oct: 0o"
@@ -51,11 +52,11 @@ you_win_map:
     .byte 0,0,0,7,0,0,7,0,7,0,7,0,7,0,0,0
     .byte 0,0,0,7,0,0,7,7,7,0,7,7,7,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
-    .byte 0,7,0,7,0,0,7,0,0,7,7,7,0,7,0,0
-    .byte 0,7,7,7,0,0,7,0,0,7,0,7,0,7,0,0
-    .byte 0,7,0,7,0,7,7,7,0,7,0,7,0,7,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,7,0,7,0,7,7,7,0,7,0,0,7,0,0,0
+    .byte 0,7,0,7,0,0,7,0,0,7,7,0,7,0,0,0
+    .byte 0,7,0,7,0,0,7,0,0,7,0,7,7,0,0,0
+    .byte 0,7,7,7,0,0,7,0,0,7,0,0,7,0,0,0
+    .byte 0,7,7,7,0,7,7,7,0,7,0,0,7,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -265,8 +266,7 @@ check_coin:
     li   $t9, 5                
     bne  $t8, $t9, normal_move 
     
-    # --- CORREGIDO: YA NO IMPRIME NADA AQUI ---
-    # Solo suma los puntos
+    # Solo suma puntos (sin imprimir)
     addi $s2, $s2, 10         
             
 normal_move:
@@ -392,6 +392,11 @@ no_collision:
     
 # --- SECCIÓN DE GAME OVER ---
 game_over:
+    # IMPRIMIR "GAME OVER"
+    la   $a0, msg_gameover
+    li   $v0, 4
+    syscall
+
     la   $t0, game_over_map
     la   $t2, display
     la   $t1, paleta_colores
