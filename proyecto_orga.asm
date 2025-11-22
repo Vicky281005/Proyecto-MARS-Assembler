@@ -3,7 +3,7 @@
 # Al poner esto al inicio, aseguramos que 'pantalla' esté en la dirección base (0x10010000)
 pantalla: .space 1024   
 
-# Paleta de colores 
+# Paleta de colores que se utilizan en la interfaz
 paleta_colores:
     .word 0xFF000000  # 0: Negro
     .word 0xFF0000FF  # 1: Azul
@@ -14,10 +14,10 @@ paleta_colores:
     .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
     .word 0xFF00FF00  # 7: Verde (Color de Victoria)
 
-# --- VARIABLES Y TEXTOS ---
-puntaje_jugador: .word 0
-msj_victoria:    .asciiz "\nYOU WIN\n"     # Mensaje solicitado
-msj_fin_juego:   .asciiz "\nGAME OVER\n"   # Mensaje solicitado
+# DATOS ESTÁTICOS Y CADENAS 
+puntaje_jugador: .word 0 # Dirección de memoria inicializada en 0 para el puntaje 
+msj_victoria:    .asciiz "\nYOU WIN\n"     # Mensaje solicitado del enunciado del proyecto
+msj_fin_juego:   .asciiz "\nGAME OVER\n"   # Mensaje solicitado del enunciado del proyecto
 msj_dec:         .asciiz "Dec: " 
 msj_hex:         .asciiz "Hex: 0x" 
 msj_oct:         .asciiz "Oct: 0o"
@@ -61,13 +61,24 @@ mapa_victoria:
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    
+    
 # --- DATOS DE LOS FANTASMAS ---
-num_fantasmas:      .word 0
-pos_fantasmas:      .space 16  # Guarda la posición (índice) de hasta 4 fantasmas
-item_bajo_fantasma: .space 4   # Guarda qué había debajo del fantasma (para restaurarlo al moverse)
 
-# --- MAPA DEL NIVEL ---
-# 1=Pared, 0=Camino
+# Palabra de memoria para almacenar la cantidad activa de enemigos (Contador N)
+num_fantasmas:      .word 0
+
+# Bloque de 16 bytes reservado para un vector de posiciones.
+# Capacidad: 4 enteros de 32 bits (4 enemigos x 4 bytes cada uno).
+pos_fantasmas:      .space 16  
+
+# Bloque de 4 bytes reservado para buffer de restauración.
+# Almacena el valor del mapa (1 byte) que está siendo cubierto temporalmente por cada enemigo.
+item_bajo_fantasma: .space 4   
+
+
+# MAPA DEL JUEGO
+# 1=Pared, 0=Piso
 mapa_juego:
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     .byte 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
@@ -86,26 +97,27 @@ mapa_juego:
     .byte 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
-.text
-.globl main
+.text  # Inicio del segmento de instrucciones (código ejecutable)
+.globl main # Declara la etiqueta 'main' como global (punto de entrada del programa)
 
 main:
-    la   $t0, mapa_juego
+    la   $t0, mapa_juego # Carga la dirección base (puntero) de la matriz 'mapa_juego' en el registro $t0.
+                         # A partir de ahora, usaremos $t0 para acceder a las casillas del mapa.
 
-    # --- 1. BUSCAR LUGAR PARA EL JUGADOR (Blanco - ID 2) ---
+    # 1. BUSCAR LUGAR PARA EL JUGADOR (Blanco - ID 2)
 buscar_sitio_blanco:
-    li   $v0, 42            # Random int range
-    li   $a1, 222
-    syscall
-    addi $a0, $a0, 18
-    add  $t6, $t0, $a0      
-    lb   $t5, 0($t6)        
-    bne  $t5, $zero, buscar_sitio_blanco # Si no es 0 (camino libre), buscar otro
-    move $s0, $a0           # $s0 guarda la posición del jugador
-    li   $t5, 2
-    sb   $t5, 0($t6)
+    li   $v0, 42    # Cargar servicio de Random Int
+    li   $a1, 222   # Límite superior (0 a 221)
+    syscall         # Ejecutar: El resultado queda en $a0
+    addi $a0, $a0, 18   # Se aplica desplazamiento (offset) para evitar las paredes iniciales
+    add  $t6, $t0, $a0    # Aritmética de punteros: Obtener la dirección de memoria de la casilla seleccionada  
+    lb   $t5, 0($t6)      # # Lectura de memoria: Cargar el byte ubicado en la dirección efectiva ($t6)
+    bne  $t5, $zero, buscar_sitio_blanco #Si el contenido no es 0 (ocupado), saltar y reintentar
+    move $s0, $a0      # $s0 guarda la posición del jugador
+    li   $t5, 2        # Cargar Inmediato: Preparar el identificador del jugador (ID 2)
+    sb   $t5, 0($t6)   # Escritura en Memoria: Almacenar el ID del jugador en la dirección efectiva calculada
 
-    # --- 2. BUSCAR LUGAR PARA LA META (Fucsia - ID 3) ---
+    # 2. BUSCAR LUGAR PARA LA META (Fucsia - ID 3) 
 buscar_sitio_fucsia:
     li   $v0, 42
     li   $a1, 222
@@ -117,7 +129,7 @@ buscar_sitio_fucsia:
     li   $t5, 3
     sb   $t5, 0($t6)
 
-    # --- 3. BUSCAR LUGAR PARA EL TELETRANSPORTE (Morado - ID 4) ---
+    # 3. BUSCAR LUGAR PARA EL TELETRANSPORTE (Morado - ID 4) 
 buscar_sitio_morado:
     li   $v0, 42
     li   $a1, 222
