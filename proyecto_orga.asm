@@ -1,10 +1,8 @@
 .data
 # --- IMPORTANTE: LA PANTALLA DEBE IR PRIMERO ---
-# Al poner esto al inicio, aseguramos que 'display' esté en la dirección 0x10010000
-# Esto hace que coincida con la configuración por defecto del Bitmap Display.
 display: .space 1024   
 
-# Paleta de colores (inmediatamente después para mantener alineación)
+# Paleta de colores 
 paleta_colores:
     .word 0xFF000000  # 0: Negro
     .word 0xFF0000FF  # 1: Azul
@@ -15,7 +13,7 @@ paleta_colores:
     .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
     .word 0xFF00FF00  # 7: Verde (Color de Victoria)
 
-# --- VARIABLES Y TEXTOS (Ahora van después) ---
+# --- VARIABLES Y TEXTOS ---
 player_score: .word 0
 msg_score:    .asciiz "\nPuntos: "
 msg_hex:      .asciiz "Hex: 0x" 
@@ -187,11 +185,7 @@ fin_bucle_rojos:
 game_loop:
     # --- DIBUJAR LA PANTALLA ---
     la   $t0, mapa_pacman
-    
-    # AQUI ESTA EL TRUCO: Al mover display al inicio del .data,
-    # 'la $t2, display' ahora apuntará a 0x10010000
     la   $t2, display       
-    
     la   $t1, paleta_colores
     li   $t3, 0
     li   $t4, 256
@@ -351,6 +345,7 @@ move_ghosts:
     li   $s5, 0            
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath
+
 red_dot_outer_loop:
     bge  $s5, $s3, check_collisions_2 
     
@@ -360,9 +355,19 @@ red_dot_outer_loop:
     
     li   $s1, 0
     la   $t0, mapa_pacman
-    
+
+    # --- CORRECCION ANTI-BUCLE ---
+    # Usaremos $t2 como contador de intentos fallidos
+    li   $t2, 0            
+
 found_move:
 red_dot_inner_loop:
+    # --- CHEQUEO DE SEGURIDAD ---
+    li   $t3, 15                # Maximo 15 intentos
+    bge  $t2, $t3, next_ghost   # Si falla 15 veces, saltar este fantasma
+    addi $t2, $t2, 1            # Incrementar intentos
+    # -----------------------------
+
     li   $v0, 42
     li   $a1, 4
     syscall
