@@ -15,7 +15,7 @@ paleta_colores:
 
 # --- VARIABLES Y TEXTOS ---
 player_score: .word 0
-msg_win:      .asciiz "\nYOU WIN\n"   # <--- NUEVO MENSAJE
+msg_win:      .asciiz "\nYOU WIN\n"
 msg_score:    .asciiz "Dec: " 
 msg_hex:      .asciiz "Hex: 0x" 
 msg_oct:      .asciiz "Oct: 0o"
@@ -205,9 +205,6 @@ draw_loop_inner:
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # YA NO IMPRIMIMOS PUNTUACIONES AQUI
-    # SE MUESTRA LIMPIO MIENTRAS JUEGAS
-
     # --- KEYBOARD INPUT ---
     li   $v0, 12
     syscall
@@ -268,15 +265,8 @@ check_coin:
     li   $t9, 5                
     bne  $t8, $t9, normal_move 
     
-    # Muestra que comiste moneda, pero no la tabla entera
-    li   $a0, 10
-    li   $v0, 1
-    syscall
-    
-    la   $a0, newline       
-    li   $v0, 4
-    syscall
-
+    # --- CORREGIDO: YA NO IMPRIME NADA AQUI ---
+    # Solo suma los puntos
     addi $s2, $s2, 10         
             
 normal_move:
