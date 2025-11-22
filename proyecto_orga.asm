@@ -15,8 +15,9 @@ paleta_colores:
 
 # --- VARIABLES Y TEXTOS ---
 player_score: .word 0
-msg_score:    .asciiz "Decimal: " # Texto opcional para claridad
+msg_score:    .asciiz "Dec: " 
 msg_hex:      .asciiz "Hex: 0x" 
+msg_oct:      .asciiz "Oct: 0o"
 newline:      .asciiz "\n"
 
 # --- MATRIZ DE GAME OVER ---
@@ -202,7 +203,9 @@ draw_loop_inner:
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # --- 1. PRIMERO: IMPRIMIR HEXADECIMAL ---
+    # ================================
+    # 1. IMPRIMIR HEXADECIMAL
+    # ================================
     la   $a0, msg_hex
     li   $v0, 4
     syscall
@@ -215,10 +218,10 @@ hex_loop_1:
     andi $a0, $a0, 0xF   
     
     slti $t1, $a0, 10      
-    bne  $t1, $zero, print_digit_1 
+    bne  $t1, $zero, print_digit_hex_1 
     addi $a0, $a0, 7       
 
-print_digit_1:
+print_digit_hex_1:
     addi $a0, $a0, 48      
     li   $v0, 11           
     syscall
@@ -226,25 +229,53 @@ print_digit_1:
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_1
     
-    # --- 2. LUEGO: SALTO DE LINEA ---
+    # Salto de linea
     la   $a0, newline
     li   $v0, 4
     syscall
 
-    # --- 3. FINALMENTE: IMPRIMIR DECIMAL ---
-    # (Opcional: poner texto "Decimal: ")
+    # ================================
+    # 2. IMPRIMIR DECIMAL
+    # ================================
     la   $a0, msg_score 
     li   $v0, 4
     syscall
 
-    move $a0, $s2     # Poner el puntaje en $a0
-    li   $v0, 1       # Syscall 1 = Print Integer (Decimal)
+    move $a0, $s2     
+    li   $v0, 1       # Syscall 1 = Print Integer
     syscall
 
-    # Salto de linea final para separar del siguiente frame
+    # Salto de linea
     la   $a0, newline
     li   $v0, 4
     syscall
+
+    # ================================
+    # 3. IMPRIMIR OCTAL (Manual)
+    # ================================
+    la   $a0, msg_oct
+    li   $v0, 4
+    syscall
+
+    move $t8, $s2     # Copiar puntaje
+    li   $t9, 30      # Shift inicial (32 bits / 3 = 10 grupos, empieza en bit 30)
+    
+oct_loop_1:
+    srlv $a0, $t8, $t9
+    andi $a0, $a0, 0x7  # Mascara de 3 bits (111 binario = 7)
+
+    addi $a0, $a0, 48   # Convertir a ASCII
+    li   $v0, 11
+    syscall
+
+    subi $t9, $t9, 3    # Restar 3 al shift
+    bge  $t9, $zero, oct_loop_1
+
+    # Salto de linea final
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+    # ================================
 
     # --- KEYBOARD INPUT ---
     li   $v0, 12
@@ -306,8 +337,6 @@ check_coin:
     li   $t9, 5                
     bne  $t8, $t9, normal_move 
     
-    # Cuando comes moneda, solo actualizamos contador
-    # (Ya no imprimimos el "10" suelto aqui para no ensuciar la consola)
     addi $s2, $s2, 10         
             
 normal_move:
@@ -464,10 +493,10 @@ hex_loop_2:
     andi $a0, $a0, 0xF
     
     slti $t1, $a0, 10
-    bne  $t1, $zero, print_digit_2
+    bne  $t1, $zero, print_digit_hex_2
     addi $a0, $a0, 7
 
-print_digit_2:
+print_digit_hex_2:
     addi $a0, $a0, 48
     li   $v0, 11
     syscall
@@ -475,24 +504,46 @@ print_digit_2:
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_2
     
-    # 2. SALTO DE LINEA
     la   $a0, newline
     li   $v0, 4
     syscall
 
-    # 3. IMPRIMIR DECIMAL
+    # 2. IMPRIMIR DECIMAL
     la   $a0, msg_score
     li   $v0, 4
     syscall
 
     move $a0, $s2
-    li   $v0, 1       # Syscall 1 (Decimal)
+    li   $v0, 1       
     syscall
 
     la   $a0, newline
     li   $v0, 4
     syscall
+    
+    # 3. IMPRIMIR OCTAL
+    la   $a0, msg_oct
+    li   $v0, 4
+    syscall
 
+    move $t8, $s2
+    li   $t9, 30
+oct_loop_2:
+    srlv $a0, $t8, $t9
+    andi $a0, $a0, 0x7
+
+    addi $a0, $a0, 48
+    li   $v0, 11
+    syscall
+
+    subi $t9, $t9, 3
+    bge  $t9, $zero, oct_loop_2
+
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+
+    # DIBUJAR PANTALLA WIN
     la   $t0, you_win_map
     la   $t2, display
     la   $t1, paleta_colores
