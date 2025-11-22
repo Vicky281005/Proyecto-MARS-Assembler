@@ -15,7 +15,7 @@ paleta_colores:
 
 # --- VARIABLES Y TEXTOS ---
 player_score: .word 0
-msg_score:    .asciiz "\nPuntos: "
+msg_score:    .asciiz "Decimal: " # Texto opcional para claridad
 msg_hex:      .asciiz "Hex: 0x" 
 newline:      .asciiz "\n"
 
@@ -202,24 +202,12 @@ draw_loop_inner:
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # --- IMPRIMIR PUNTUACIÓN ---
-    la   $a0, msg_score
-    li   $v0, 4
-    syscall
-    
-    move $a0, $s2
-    li   $v0, 1
-    syscall
-    
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-    
+    # --- 1. PRIMERO: IMPRIMIR HEXADECIMAL ---
     la   $a0, msg_hex
     li   $v0, 4
     syscall
     
-    # --- HEX LOOP 1 ---
+    # Bloque Hex Loop Manual
     move $t8, $s2        
     li   $t9, 28         
 hex_loop_1:
@@ -238,6 +226,22 @@ print_digit_1:
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_1
     
+    # --- 2. LUEGO: SALTO DE LINEA ---
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+
+    # --- 3. FINALMENTE: IMPRIMIR DECIMAL ---
+    # (Opcional: poner texto "Decimal: ")
+    la   $a0, msg_score 
+    li   $v0, 4
+    syscall
+
+    move $a0, $s2     # Poner el puntaje en $a0
+    li   $v0, 1       # Syscall 1 = Print Integer (Decimal)
+    syscall
+
+    # Salto de linea final para separar del siguiente frame
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -302,14 +306,8 @@ check_coin:
     li   $t9, 5                
     bne  $t8, $t9, normal_move 
     
-    li   $a0, 10
-    li   $v0, 1
-    syscall
-    
-    la   $a0, newline       
-    li   $v0, 4
-    syscall
-
+    # Cuando comes moneda, solo actualizamos contador
+    # (Ya no imprimimos el "10" suelto aqui para no ensuciar la consola)
     addi $s2, $s2, 10         
             
 normal_move:
@@ -356,17 +354,13 @@ red_dot_outer_loop:
     li   $s1, 0
     la   $t0, mapa_pacman
 
-    # --- CORRECCION ANTI-BUCLE ---
-    # Usaremos $t2 como contador de intentos fallidos
-    li   $t2, 0            
+    li   $t2, 0            # Contador de seguridad
 
 found_move:
 red_dot_inner_loop:
-    # --- CHEQUEO DE SEGURIDAD ---
-    li   $t3, 15                # Maximo 15 intentos
-    bge  $t2, $t3, next_ghost   # Si falla 15 veces, saltar este fantasma
-    addi $t2, $t2, 1            # Incrementar intentos
-    # -----------------------------
+    li   $t3, 15                
+    bge  $t2, $t3, next_ghost   
+    addi $t2, $t2, 1            
 
     li   $v0, 42
     li   $a1, 4
@@ -458,23 +452,11 @@ game_over_draw_loop:
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
-    la   $a0, msg_score
-    li   $v0, 4
-    syscall
-    
-    move $a0, $s2
-    li   $v0, 1
-    syscall
-    
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-
+    # 1. IMPRIMIR HEXADECIMAL
     la   $a0, msg_hex
     li   $v0, 4
     syscall
     
-    # --- HEX LOOP 2 ---
     move $t8, $s2
     li   $t9, 28
 hex_loop_2:
@@ -493,6 +475,20 @@ print_digit_2:
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_2
     
+    # 2. SALTO DE LINEA
+    la   $a0, newline
+    li   $v0, 4
+    syscall
+
+    # 3. IMPRIMIR DECIMAL
+    la   $a0, msg_score
+    li   $v0, 4
+    syscall
+
+    move $a0, $s2
+    li   $v0, 1       # Syscall 1 (Decimal)
+    syscall
+
     la   $a0, newline
     li   $v0, 4
     syscall
