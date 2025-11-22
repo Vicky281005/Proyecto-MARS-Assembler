@@ -1,12 +1,10 @@
 .data
-player_score: .word 0
+# --- IMPORTANTE: LA PANTALLA DEBE IR PRIMERO ---
+# Al poner esto al inicio, aseguramos que 'display' esté en la dirección 0x10010000
+# Esto hace que coincida con la configuración por defecto del Bitmap Display.
+display: .space 1024   
 
-# --- TEXTOS PARA CONSOLA ---
-msg_score:.asciiz "\nPuntos: "
-msg_hex:.asciiz "Hex: 0x"    # Le quité el espacio inicial para que se alinee bien
-newline:.asciiz "\n"
-
-display: .space 1024
+# Paleta de colores (inmediatamente después para mantener alineación)
 paleta_colores:
     .word 0xFF000000  # 0: Negro
     .word 0xFF0000FF  # 1: Azul
@@ -16,6 +14,12 @@ paleta_colores:
     .word 0xFFFFFF00  # 5: Amarillo (Moneda)
     .word 0xFFFF0000  # 6: Rojo (Fantasma / Game Over)
     .word 0xFF00FF00  # 7: Verde (Color de Victoria)
+
+# --- VARIABLES Y TEXTOS (Ahora van después) ---
+player_score: .word 0
+msg_score:    .asciiz "\nPuntos: "
+msg_hex:      .asciiz "Hex: 0x" 
+newline:      .asciiz "\n"
 
 # --- MATRIZ DE GAME OVER ---
 game_over_map:
@@ -57,8 +61,8 @@ you_win_map:
 
 # Almacenamiento para los Fantasmas
 num_red_dots: .word 0
-red_dot_positions: .space 16  # Max 4 fantasmas
-red_dot_underneath: .space 4   # Max 4 fantasmas
+red_dot_positions: .space 16  
+red_dot_underneath: .space 4   
 
 mapa_pacman:
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
@@ -82,10 +86,9 @@ mapa_pacman:
 .globl main
 
 main:
-    # --- Cargar Dirección Base ---
     la   $t0, mapa_pacman
 
-    # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO (Índice 2) ---
+    # --- 1. BUSCAR LUGAR PARA PUNTO BLANCO ---
 find_spot_blanco:
     li   $v0, 42
     li   $a1, 222
@@ -94,11 +97,11 @@ find_spot_blanco:
     add  $t6, $t0, $a0      
     lb   $t5, 0($t6)        
     bne  $t5, $zero, find_spot_blanco 
-    move $s0, $a0          # $s0 = pacman_pos_index
+    move $s0, $a0          
     li   $t5, 2
     sb   $t5, 0($t6)
 
-    # --- 2. BUSCAR LUGAR PARA PUNTO FUCSIA (Índice 3) ---
+    # --- 2. BUSCAR LUGAR PARA PUNTO FUCSIA ---
 find_spot_fucsia:
     li   $v0, 42
     li   $a1, 222
@@ -110,7 +113,7 @@ find_spot_fucsia:
     li   $t5, 3
     sb   $t5, 0($t6)
 
-    # --- 3. BUSCAR LUGAR PARA PUNTO MORADO (Índice 4) ---
+    # --- 3. BUSCAR LUGAR PARA PUNTO MORADO ---
 find_spot_morado:
     li   $v0, 42
     li   $a1, 222
@@ -122,12 +125,12 @@ find_spot_morado:
     li   $t5, 4
     sb   $t5, 0($t6)
 
-    # --- 4. GENERAR 3-6 PUNTOS AMARILLOS (Índice 5) ---
+    # --- 4. GENERAR PUNTOS AMARILLOS ---
     li   $v0, 42
-    li   $a1, 4            
+    li   $a1, 4             
     syscall
-    addi $s1, $a0, 3      # $s1 = N (3-6)
-    li   $s2, 0           # $s2 = i (contador)
+    addi $s1, $a0, 3       
+    li   $s2, 0            
 bucle_monedas:
     bge  $s2, $s1, fin_bucle_monedas
 find_spot_amarillo:
@@ -144,14 +147,14 @@ find_spot_amarillo:
     j    bucle_monedas
 fin_bucle_monedas:
 
-    # --- 5. GENERAR 2-4 PUNTOS ROJOS (Índice 6) ---
+    # --- 5. GENERAR PUNTOS ROJOS ---
     li   $v0, 42
-    li   $a1, 3            
+    li   $a1, 3             
     syscall
-    addi $s1, $a0, 2      # $s1 = N (2-4)
+    addi $s1, $a0, 2       
     la   $s3, num_red_dots
     sw   $s1, 0($s3)
-    li   $s2, 0           # $s2 = i (contador)
+    li   $s2, 0            
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath 
 bucle_rojos:
@@ -177,19 +180,18 @@ find_spot_rojo:
     addi $s2, $s2, 1
     j    bucle_rojos
 fin_bucle_rojos:
-    # --- FIN DE LA CONFIGURACIÓN ---
 
-
-# --- INICIALIZAR REGISTRO DE PUNTUACIÓN ($s2) ---
-    li   $s2, 0        # $s2 será nuestro contador de puntos
-
+    li   $s2, 0        # Reset Score
 
 # --- BUCLE PRINCIPAL DEL JUEGO ---
 game_loop:
-
-    # --- 1. DIBUJAR LA PANTALLA ---
+    # --- DIBUJAR LA PANTALLA ---
     la   $t0, mapa_pacman
-    li   $t2, 0x10010000
+    
+    # AQUI ESTA EL TRUCO: Al mover display al inicio del .data,
+    # 'la $t2, display' ahora apuntará a 0x10010000
+    la   $t2, display       
+    
     la   $t1, paleta_colores
     li   $t3, 0
     li   $t4, 256
@@ -200,77 +202,67 @@ draw_loop_inner:
     add  $t6, $t6, $t1          
     lw   $t7, 0($t6)            
     sw   $t7, 0($t2)            
-    addi $t0, $t0, 1           
-    addi $t2, $t2, 4           
-    addi $t3, $t3, 1           
+    addi $t0, $t0, 1            
+    addi $t2, $t2, 4            
+    addi $t3, $t3, 1            
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # --- 1.5 IMPRIMIR PUNTUACIÓN (BLOG STYLE CORREGIDO) ---
-    
-    # Imprimir texto "Puntos: "
+    # --- IMPRIMIR PUNTUACIÓN ---
     la   $a0, msg_score
     li   $v0, 4
     syscall
     
-    # Imprimir valor Decimal
     move $a0, $s2
     li   $v0, 1
     syscall
     
-    # --- SALTO DE LÍNEA ENTRE ENTERO Y HEX ---
     la   $a0, newline
     li   $v0, 4
     syscall
-    # ------------------------------------------
-
-    # Imprimir texto "Hex: 0x"
+    
     la   $a0, msg_hex
     li   $v0, 4
     syscall
     
-    # --- INICIO BLOQUE HEX MANUAL ---
-    move $t8, $s2       # Copia del valor
-    li   $t9, 28        # Shift inicial
+    # --- HEX LOOP 1 ---
+    move $t8, $s2        
+    li   $t9, 28         
 hex_loop_1:
-    srlv $a0, $t8, $t9  # Shift Variable
-    andi $a0, $a0, 0xF  # Mascarar
+    srlv $a0, $t8, $t9   
+    andi $a0, $a0, 0xF   
     
-    # Lógica optimizada del blog
     slti $t1, $a0, 10      
     bne  $t1, $zero, print_digit_1 
-    addi $a0, $a0, 7       # Offset para letras (A-F)
+    addi $a0, $a0, 7       
 
 print_digit_1:
-    addi $a0, $a0, 48      # Offset base para números (0-9)
-    
-    li   $v0, 11           # Imprimir caracter
+    addi $a0, $a0, 48      
+    li   $v0, 11           
     syscall
     
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_1
-    # --- FIN BLOQUE HEX ---
     
-    # Salto de línea final del turno
     la   $a0, newline
     li   $v0, 4
     syscall
 
-    # --- 2. REVISAR TECLADO (Syscall 12) ---
+    # --- KEYBOARD INPUT ---
     li   $v0, 12
     syscall
-    move $t4, $v0          # $t4 = tecla
+    move $t4, $v0          
 
-    # --- 3. ACTUALIZAR JUGADOR (W, A, S, D) ---
-    li   $t7, 119          # ASCII 'w'
+    # --- MOVEMENT LOGIC ---
+    li   $t7, 119          # w
     beq  $t4, $t7, set_move_w
-    li   $t7, 97           # ASCII 'a'
+    li   $t7, 97           # a
     beq  $t4, $t7, set_move_a
-    li   $t7, 115          # ASCII 's'
+    li   $t7, 115          # s
     beq  $t4, $t7, set_move_s
-    li   $t7, 100          # ASCII 'd'
+    li   $t7, 100          # d
     beq  $t4, $t7, set_move_d
-    j    move_ghosts       # Si no es W,A,S,D, saltar mov. de jugador
+    j    move_ghosts       
 
 set_move_w:
     li   $t5, -16
@@ -285,20 +277,17 @@ set_move_d:
     li   $t5, 1
     
 perform_move:
-    add  $t6, $s0, $t5         # $t6 = nueva_pos
+    add  $t6, $s0, $t5         
     la   $t0, mapa_pacman
-    add  $t7, $t0, $t6         # $t7 = &mapa_pacman[nueva_pos]
-    lb   $t8, 0($t7)           # $t8 = valor en mapa_pacman[nueva_pos]
+    add  $t7, $t0, $t6         
+    lb   $t8, 0($t7)           
     
-    # Lógica de Colisión del Jugador
     li   $t9, 1
-    beq  $t8, $t9, move_ghosts # Si es pared (1), no te muevas
+    beq  $t8, $t9, move_ghosts 
     
-    # --- LÓGICA DE VICTORIA ---
     li   $t9, 3
-    beq  $t8, $t9, you_win     # Si es Fucsia (3), GANASTE
+    beq  $t8, $t9, you_win     
     
-    # Lógica de Teleport
     li   $t9, 4
     bne  $t8, $t9, check_coin 
     add  $t7, $t0, $s0         
@@ -316,69 +305,59 @@ find_teleport_spot:
     j    move_ghosts
     
 check_coin:
-    li   $t9, 5                # 5 = Amarillo
-    bne  $t8, $t9, normal_move # Si no es amarillo, mueve normal
+    li   $t9, 5                
+    bne  $t8, $t9, normal_move 
     
-    # 1. Imprimir "10" cuando comes moneda
     li   $a0, 10
     li   $v0, 1
     syscall
     
-    # Imprimir salto de linea
-    la   $a0, newline      
+    la   $a0, newline       
     li   $v0, 4
     syscall
 
-    # 2. SUMAR PUNTOS EN REGISTRO $s2
-    addi $s2, $s2, 10         # $s2 += 10
+    addi $s2, $s2, 10         
             
 normal_move:
-    # --- Movimiento Válido ---
-    la   $t0, mapa_pacman   # Recargar direccion base
+    la   $t0, mapa_pacman   
     add  $t7, $t0, $s0         
-    sb   $zero, 0($t7)      # Borrar anterior
+    sb   $zero, 0($t7)      
     li   $t5, 2
     add  $t7, $t0, $t6         
-    sb   $t5, 0($t7)        # Poner nuevo (2)
-    move $s0, $t6           # Actualizar posición
+    sb   $t5, 0($t7)        
+    move $s0, $t6           
 
-    # =====================================================================
-    # --- NUEVA VERIFICACIÓN DE COLISIÓN #1 (DESPUES DEL MOVIMIENTO JUGADOR) ---
-    # =====================================================================
+    # --- PLAYER-GHOST COLLISION 1 ---
 check_collision_after_player:
     la   $s3, num_red_dots
-    lw   $s3, 0($s3)        # $s3 = Cantidad de fantasmas
-    li   $s5, 0             # $s5 = iterador (i)
+    lw   $s3, 0($s3)        
+    li   $s5, 0             
     la   $s4, red_dot_positions
     
 check_loop_1:
-    bge  $s5, $s3, move_ghosts # Si recorrimos todos y no hay choque, mover fantasmas
+    bge  $s5, $s3, move_ghosts 
     
     sll  $t7, $s5, 2
     add  $t8, $s4, $t7
-    lw   $s6, 0($t8)        # $s6 = posición del fantasma [i]
-    
-    # Comparar Posicion Jugador ($s0) vs Fantasma ($s6)
+    lw   $s6, 0($t8)        
     beq  $s0, $s6, game_over 
     
-    addi $s5, $s5, 1        # i++
+    addi $s5, $s5, 1        
     j    check_loop_1
 
 move_ghosts:
-    # --- 4. MOVER FANTASMAS (PUNTOS ROJOS) ---
     la   $s3, num_red_dots
-    lw   $s3, 0($s3)       # $s3 = N
-    li   $s5, 0            # $s5 = i
+    lw   $s3, 0($s3)       
+    li   $s5, 0            
     la   $s4, red_dot_positions
     la   $s7, red_dot_underneath
 red_dot_outer_loop:
-    bge  $s5, $s3, check_collisions_2 # Cuando terminen, ir a evaluar colision 2
+    bge  $s5, $s3, check_collisions_2 
     
     sll  $t7, $s5, 2        
     add  $t8, $s4, $t7      
-    lw   $s6, 0($t8)       # $s6 = pos_actual del fantasma
+    lw   $s6, 0($t8)       
     
-    # Pre-Chequeo
     li   $s1, 0
     la   $t0, mapa_pacman
     
@@ -406,58 +385,48 @@ set_move_left_red:
     li   $t5, -1
 
 check_red_move:
-    add  $t6, $s6, $t5     # $t6 = nueva_pos
+    add  $t6, $s6, $t5     
     la   $t0, mapa_pacman
     add  $t7, $t0, $t6     
-    lb   $t9, 0($t7)       # $t9 = valor en nueva_pos
+    lb   $t9, 0($t7)       
     
-    # Si es 0 (Negro), OK.
     beq  $t9, $zero, do_ghost_move
-    
-    # Si es 2 (Jugador), OK (Matar).
     li   $t1, 2
     beq  $t9, $t1, do_ghost_move
-    
-    # Si no, intentar otra direccion
     j    red_dot_inner_loop
 
 do_ghost_move:
-    # --- Movimiento Válido ---
     add  $s1, $s7, $s5     
-    lb   $t5, 0($s1)       # Recuperar lo que había debajo del fantasma
+    lb   $t5, 0($s1)       
     add  $t7, $t0, $s6     
-    sb   $t5, 0($t7)       # Restaurarlo en la posición vieja
+    sb   $t5, 0($t7)       
     
-    sb   $t9, 0($s1)       # Guardar lo que hay en la nueva (podría ser 0 o 2)
+    sb   $t9, 0($s1)       
     li   $t5, 6
     add  $t7, $t0, $t6     
-    sb   $t5, 0($t7)       # Poner fantasma en nueva posición
-    sw   $t6, 0($t8)       # Actualizar coordenadas en array
+    sb   $t5, 0($t7)       
+    sw   $t6, 0($t8)       
     
 next_ghost:
-    addi $s5, $s5, 1      # i++
+    addi $s5, $s5, 1      
     j    red_dot_outer_loop
 end_red_dot_loop:
 
-    # =====================================================================
-    # --- VERIFICACIÓN DE COLISIÓN #2 (DESPUES DE MOVER FANTASMAS) ---
-    # =====================================================================
+    # --- PLAYER-GHOST COLLISION 2 ---
 check_collisions_2:
     la   $s3, num_red_dots
-    lw   $s3, 0($s3)       # $s3 = N
-    li   $s5, 0            # $s5 = i
+    lw   $s3, 0($s3)       
+    li   $s5, 0            
     la   $s4, red_dot_positions
 check_collision_loop_2:
-    bge  $s5, $s3, no_collision # Si (i >= N), estamos a salvo
+    bge  $s5, $s3, no_collision 
     
     sll  $t7, $s5, 2
     add  $t8, $s4, $t7
-    lw   $s6, 0($t8)       # $s6 = pos del fantasma
-    
-    # COMPARACIÓN CLAVE
+    lw   $s6, 0($t8)       
     beq  $s0, $s6, game_over 
     
-    addi $s5, $s5, 1      # i++
+    addi $s5, $s5, 1      
     j    check_collision_loop_2
 
 no_collision:
@@ -466,7 +435,7 @@ no_collision:
 # --- SECCIÓN DE GAME OVER ---
 game_over:
     la   $t0, game_over_map
-    li   $t2, 0x10010000
+    la   $t2, display
     la   $t1, paleta_colores
     li   $t3, 0
     li   $t4, 256
@@ -477,14 +446,13 @@ game_over_draw_loop:
     add  $t6, $t6, $t1          
     lw   $t7, 0($t6)            
     sw   $t7, 0($t2)            
-    addi $t0, $t0, 1           
-    addi $t2, $t2, 4           
-    addi $t3, $t3, 1           
+    addi $t0, $t0, 1            
+    addi $t2, $t2, 4            
+    addi $t3, $t3, 1            
     j    game_over_draw_loop
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
-    # --- IMPRIMIR PUNTUACIÓN FINAL ---
     la   $a0, msg_score
     li   $v0, 4
     syscall
@@ -493,7 +461,6 @@ you_win:
     li   $v0, 1
     syscall
     
-    # --- SALTO DE LINEA ---
     la   $a0, newline
     li   $v0, 4
     syscall
@@ -502,7 +469,7 @@ you_win:
     li   $v0, 4
     syscall
     
-    # --- BLOQUE HEX MANUAL EN VICTORIA ---
+    # --- HEX LOOP 2 ---
     move $t8, $s2
     li   $t9, 28
 hex_loop_2:
@@ -515,20 +482,18 @@ hex_loop_2:
 
 print_digit_2:
     addi $a0, $a0, 48
-    
     li   $v0, 11
     syscall
     
     subi $t9, $t9, 4
     bge  $t9, $zero, hex_loop_2
-    # --- FIN BLOQUE HEX ---
     
     la   $a0, newline
     li   $v0, 4
     syscall
 
     la   $t0, you_win_map
-    li   $t2, 0x10010000
+    la   $t2, display
     la   $t1, paleta_colores
     li   $t3, 0
     li   $t4, 256
@@ -539,12 +504,11 @@ you_win_draw_loop:
     add  $t6, $t6, $t1          
     lw   $t7, 0($t6)            
     sw   $t7, 0($t2)            
-    addi $t0, $t0, 1           
-    addi $t2, $t2, 4           
-    addi $t3, $t3, 1           
+    addi $t0, $t0, 1            
+    addi $t2, $t2, 4            
+    addi $t3, $t3, 1            
     j    you_win_draw_loop
 
 done:
-    # --- Fin del programa ---
     li   $v0, 10
     syscall
