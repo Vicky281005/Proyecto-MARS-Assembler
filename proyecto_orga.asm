@@ -15,6 +15,7 @@ paleta_colores:
 
 # --- VARIABLES Y TEXTOS ---
 player_score: .word 0
+msg_win:      .asciiz "\nYOU WIN\n"   # <--- NUEVO MENSAJE
 msg_score:    .asciiz "Dec: " 
 msg_hex:      .asciiz "Hex: 0x" 
 msg_oct:      .asciiz "Oct: 0o"
@@ -204,102 +205,8 @@ draw_loop_inner:
     j    draw_loop_inner
 end_draw_loop_inner:
 
-    # ================================
-    # 1. IMPRIMIR HEXADECIMAL
-    # ================================
-    la   $a0, msg_hex
-    li   $v0, 4
-    syscall
-    
-    # Bloque Hex Loop Manual
-    move $t8, $s2        
-    li   $t9, 28         
-hex_loop_1:
-    srlv $a0, $t8, $t9   
-    andi $a0, $a0, 0xF   
-    
-    slti $t1, $a0, 10      
-    bne  $t1, $zero, print_digit_hex_1 
-    addi $a0, $a0, 7       
-
-print_digit_hex_1:
-    addi $a0, $a0, 48      
-    li   $v0, 11           
-    syscall
-    
-    subi $t9, $t9, 4
-    bge  $t9, $zero, hex_loop_1
-    
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-
-    # ================================
-    # 2. IMPRIMIR DECIMAL
-    # ================================
-    la   $a0, msg_score 
-    li   $v0, 4
-    syscall
-
-    move $a0, $s2     
-    li   $v0, 1       
-    syscall
-
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-
-    # ================================
-    # 3. IMPRIMIR OCTAL
-    # ================================
-    la   $a0, msg_oct
-    li   $v0, 4
-    syscall
-
-    move $t8, $s2     
-    li   $t9, 30      
-    
-oct_loop_1:
-    srlv $a0, $t8, $t9
-    andi $a0, $a0, 0x7  
-
-    addi $a0, $a0, 48   
-    li   $v0, 11
-    syscall
-
-    subi $t9, $t9, 3    
-    bge  $t9, $zero, oct_loop_1
-
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-
-    # ================================
-    # 4. IMPRIMIR BINARIO
-    # ================================
-    la   $a0, msg_bin
-    li   $v0, 4
-    syscall
-
-    move $t8, $s2     # Copiar puntaje
-    li   $t9, 31      # Empezamos en el bit 31 (más significativo)
-
-bin_loop_1:
-    srlv $a0, $t8, $t9    # Mover bit deseado a la posición 0
-    andi $a0, $a0, 1      # Aislarlo (AND 1)
-    
-    addi $a0, $a0, 48     # Convertir 0 o 1 a ASCII
-    li   $v0, 11
-    syscall
-
-    subi $t9, $t9, 1      # Siguiente bit a la derecha
-    bge  $t9, $zero, bin_loop_1
-
-    la   $a0, newline
-    li   $v0, 4
-    syscall
-    # ================================
-
+    # YA NO IMPRIMIMOS PUNTUACIONES AQUI
+    # SE MUESTRA LIMPIO MIENTRAS JUEGAS
 
     # --- KEYBOARD INPUT ---
     li   $v0, 12
@@ -361,6 +268,15 @@ check_coin:
     li   $t9, 5                
     bne  $t8, $t9, normal_move 
     
+    # Muestra que comiste moneda, pero no la tabla entera
+    li   $a0, 10
+    li   $v0, 1
+    syscall
+    
+    la   $a0, newline       
+    li   $v0, 4
+    syscall
+
     addi $s2, $s2, 10         
             
 normal_move:
@@ -505,6 +421,11 @@ game_over_draw_loop:
 
 # --- SECCIÓN DE VICTORIA ---
 you_win:
+    # 0. IMPRIMIR "YOU WIN"
+    la   $a0, msg_win
+    li   $v0, 4
+    syscall
+
     # 1. IMPRIMIR HEXADECIMAL
     la   $a0, msg_hex
     li   $v0, 4
@@ -567,7 +488,7 @@ oct_loop_2:
     li   $v0, 4
     syscall
     
-    # 4. IMPRIMIR BINARIO (VICTORIA)
+    # 4. IMPRIMIR BINARIO
     la   $a0, msg_bin
     li   $v0, 4
     syscall
