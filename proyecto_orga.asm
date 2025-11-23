@@ -682,69 +682,91 @@ imprimir_digito_hex:
                             # (32 bits no es divisible por 3; el primer grupo son los bits 31-30)
 
 bucle_oct_vic:
-    # EXTRACCIÓN DE 3 BITS 
-    srlv $a0, $t8, $t9      # Desplazar los bits relevantes a la posición derecha (LSB)
-    andi $a0, $a0, 0x7      # Quedarnos únicamente con el dígito actual (los últimos 3 bits)
+    # PREPARAR EL DÍGITO 
+    srlv $a0, $t8, $t9      # Traer el grupo de bits que nos toca leer hacia la derecha (al final) para poder usarlo.
+    andi $a0, $a0, 0x7      # Limpiar el registro: Borrar todo lo que sobra a la izquierda y dejar solo el número del 0 al 7.
     
-    # CONVERSIÓN A TEXTO 
-    # Como en Octal solo existen números del 0 al 7, la conversión es directa (no hay letras A-F).
-    addi $a0, $a0, 48       # Transformar el valor numérico en su carácter ASCII correspondiente.
+    # TRADUCIR A TEXTO 
+    # En Octal es fácil: como no hay letras, solo sumamos 48 para convertir el número en su "dibujo" (carácter).
+    addi $a0, $a0, 48       # Convertir el valor matemático en un símbolo ASCII visible.
     
-    # IMPRESIÓN 
-    li   $v0, 11            # Print Character
+    # MOSTRAR 
+    li   $v0, 11        # Decirle a la consola: "Escribe este carácter".
     syscall
 
-    # ITERACIÓN 
-    subi $t9, $t9, 3        # Decrementar desplazamiento en 3 (el tamaño de un dígito octal)
-    bge  $t9, $zero, bucle_oct_vic # Repetir mientras queden bits por procesar
+    # SIGUIENTE GRUPO 
+    subi $t9, $t9, 3        # Restar 3 al contador (porque en Octal leemos de 3 en 3 bits).
+    bge  $t9, $zero, bucle_oct_vic # ¿Si quedan bits por leer repetimos el proceso.
 
-    # FORMATO 
+    # SALTO DE LÍNEA 
     la   $a0, salto_linea
     li   $v0, 4
     syscall
     
-    # IMPRIMIR BINARIO
-    la   $a0, msj_bin
+    
+    # PUNTUACION EN BINARIO
+    
+    # 1. ETIQUETA
+    la   $a0, msj_bin       # Escribir "Bin: 0b" en la consola.
     li   $v0, 4
     syscall
 
-    move $t8, $s2
-    li   $t9, 31
+    # 2. PREPARACIÓN
+    move $t8, $s2           # Hacer una copia de seguridad del puntaje para no dañarlo.
+    li   $t9, 31            # Poner el "dedo" en el bit 31 (el primero de la izquierda).
 
 bucle_bin_vic:
-    srlv $a0, $t8, $t9
-    andi $a0, $a0, 1
+    # AISLAR UN SOLO BIT 
+    srlv $a0, $t8, $t9      # Mover el bit actual hasta el final de la fila.
+    andi $a0, $a0, 1        # Filtrar: ¿Es un 0 o un 1? Borrar todo lo demás.
     
-    addi $a0, $a0, 48
-    li   $v0, 11
+    # TRADUCIR A TEXTO 
+    addi $a0, $a0, 48       # Convertir el 0 o 1 numérico en el carácter '0' o '1'.
+    
+    # MOSTRAR 
+    li   $v0, 11            # Imprimir el bit en pantalla.
     syscall
 
-    subi $t9, $t9, 1
-    bge  $t9, $zero, bucle_bin_vic
+    # SIGUIENTE BIT 
+    subi $t9, $t9, 1        # Movernos una posición a la derecha (al siguiente bit).
+    bge  $t9, $zero, bucle_bin_vic # Repetir hasta que hayamos impreso los 32 bits.
 
+    # SALTO DE LÍNEA FINAL 
     la   $a0, salto_linea
     li   $v0, 4
     syscall
-    # ==============================
 
-    # DIBUJAR PANTALLA DE VICTORIA
-    la   $t0, mapa_victoria
-    la   $t2, pantalla
-    la   $t1, paleta_colores
-    li   $t3, 0
-    li   $t4, 256
+    # PANTALLA FINAL (DIBUJO)
+    # --- CONFIGURACIÓN DEL CONTEXTO GRÁFICO ---
+    # Inicializamos los punteros necesarios para la transferencia de datos visuales
+    la   $t0, mapa_victoria     # Establecer el origen de datos: Matriz estática de la imagen de victoria
+    la   $t2, pantalla          # Establecer el destino de escritura: Dirección base del Bitmap Display
+    la   $t1, paleta_colores    # Cargar la tabla de referencia para la traducción de colores
+    
+    li   $t3, 0                 # Inicializar el contador de iteraciones en 0
+    li   $t4, 256               # Definir la resolución total de la imagen (16x16 píxeles)
+
 dibujar_victoria:
+    # Verificar si se ha completado el renderizado de todos los píxeles para finalizar el programa
     bge  $t3, $t4, fin_programa
-    lb   $t5, 0($t0)            
-    sll  $t6, $t5, 2            
-    add  $t6, $t6, $t1          
-    lw   $t7, 0($t6)            
-    sw   $t7, 0($t2)            
-    addi $t0, $t0, 1            
-    addi $t2, $t2, 4            
-    addi $t3, $t3, 1            
-    j    dibujar_victoria
+    
+    # PIPELINE DE PROCESAMIENTO DE PÍXELES 
+    lb   $t5, 0($t0)            # Extracción: Leer el ID lógico del color desde la imagen de origen
+    
+    sll  $t6, $t5, 2            # Cálculo de Offset: Alinear el ID al tamaño de palabra (4 bytes)
+    add  $t6, $t6, $t1          # Direccionamiento: Calcular la dirección física del color en la paleta
+    lw   $t7, 0($t6)            # Decodificación: Obtener el valor hexadecimal real (RGB) del color
+    
+    sw   $t7, 0($t2)            # Renderizado: Escribir el valor de color en la memoria de video activa
+    
+    # ACTUALIZACIÓN DE PUNTEROS 
+    addi $t0, $t0, 1            # Desplazar el puntero de origen al siguiente byte
+    addi $t2, $t2, 4            # Desplazar el puntero de video a la siguiente palabra
+    addi $t3, $t3, 1            # Registrar el píxel procesado en el contador
+    
+    j    dibujar_victoria       # Ciclar para procesar el siguiente píxel
 
 fin_programa:
-    li   $v0, 10
-    syscall
+    # --- CERRAR EL JUEGO ---
+    li   $v0, 10                # Orden al sistema: "Termina la ejecución".
+    syscall                     # ¡Adiós!
