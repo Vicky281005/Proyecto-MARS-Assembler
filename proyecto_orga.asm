@@ -276,33 +276,48 @@ bucle_dibujo:
 
 fin_bucle_dibujo:
 
-    # --- ENTRADA DE TECLADO ---
-    li   $v0, 12            # Syscall leer char
-    syscall
-    move $t4, $v0           # Guardar tecla en $t4
+    # LECTURA DE ENTRADA (INPUT)
+    li   $v0, 12            # Cargar servicio 12 (Read Char): Lectura bloqueante de un carácter
+    syscall                 # Interrupción del sistema: Espera hasta que el usuario presione una tecla
+    move $t4, $v0           # Respaldar el valor ASCII de la tecla ingresada en $t4 para su evaluación
 
-    # --- LÓGICA DE MOVIMIENTO ---
-    li   $t7, 119           # Tecla 'w'
-    beq  $t4, $t7, mover_w
-    li   $t7, 97            # Tecla 'a'
-    beq  $t4, $t7, mover_a
-    li   $t7, 115           # Tecla 's'
-    beq  $t4, $t7, mover_s
-    li   $t7, 100           # Tecla 'd'
-    beq  $t4, $t7, mover_d
-    j    mover_fantasmas    # Si no es WASD, saltar movimiento jugador
+    # DECODIFICACIÓN DE INSTRUCCIÓN
+    # Se compara el input con las constantes ASCII de W,A,S,D
+    
+    li   $t7, 119           # Cargar constante ASCII 'w' (119)
+    beq  $t4, $t7, mover_w  # Branch if Equal: Si tecla == 'w', saltar a rutina de movimiento ARRIBA
+    
+    li   $t7, 97            # Cargar constante ASCII 'a' (97)
+    beq  $t4, $t7, mover_a  # Branch if Equal: Si tecla == 'a', saltar a rutina de movimiento IZQUIERDA
+    
+    li   $t7, 115           # Cargar constante ASCII 's' (115)
+    beq  $t4, $t7, mover_s  # Branch if Equal: Si tecla == 's', saltar a rutina de movimiento ABAJO
+    
+    li   $t7, 100           # Cargar constante ASCII 'd' (100)
+    beq  $t4, $t7, mover_d  # Branch if Equal: Si tecla == 'd', saltar a rutina de movimiento DERECHA
+    
+    # Si la tecla es inválida
+    # Si no coincide con ninguna dirección, el jugador pierde el turno y la IA (fantasmas) se actualiza
+    j    mover_fantasmas    
+
+    # DEFINICIÓN DE VECTORES DE MOVIMIENTO 
+    # $t5 almacenará el desplazamiento de memoria necesario para moverse en la matriz lineal
 
 mover_w:
-    li   $t5, -16
-    j    ejecutar_movimiento
+    li   $t5, -16           # Vector Arriba: Restar 16 (ancho del mapa) para retroceder una fila completa
+    j    ejecutar_movimiento # Salto incondicional a la lógica de actualización física
+
 mover_a:
-    li   $t5, -1
+    li   $t5, -1            # Vector Izquierda: Restar 1 byte para retroceder una columna
     j    ejecutar_movimiento
+
 mover_s:
-    li   $t5, 16
+    li   $t5, 16            # Vector Abajo: Sumar 16 (ancho del mapa) para avanzar una fila completa
     j    ejecutar_movimiento
+
 mover_d:
-    li   $t5, 1
+    li   $t5, 1             # Vector Derecha: Sumar 1 byte para avanzar una columna
+    
     
 ejecutar_movimiento:
     add  $t6, $s0, $t5          # Calcular nueva posición
