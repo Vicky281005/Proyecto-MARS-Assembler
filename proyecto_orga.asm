@@ -105,119 +105,175 @@ main:
                          # A partir de ahora, usaremos $t0 para acceder a las casillas del mapa.
 
     # 1. BUSCAR LUGAR PARA EL JUGADOR (Blanco - ID 2)
-buscar_sitio_blanco:
+buscar_sitio_blanco: # Etiqueta de inicio del bucle
     li   $v0, 42    # Cargar servicio de Random Int
     li   $a1, 222   # Límite superior (0 a 221)
     syscall         # Ejecutar: El resultado queda en $a0
     addi $a0, $a0, 18   # Se aplica desplazamiento (offset) para evitar las paredes iniciales
+    
     add  $t6, $t0, $a0    # Aritmética de punteros: Obtener la dirección de memoria de la casilla seleccionada  
     lb   $t5, 0($t6)      # # Lectura de memoria: Cargar el byte ubicado en la dirección efectiva ($t6)
     bne  $t5, $zero, buscar_sitio_blanco #Si el contenido no es 0 (ocupado), saltar y reintentar
+    
     move $s0, $a0      # $s0 guarda la posición del jugador
     li   $t5, 2        # Cargar Inmediato: Preparar el identificador del jugador (ID 2)
     sb   $t5, 0($t6)   # Escritura en Memoria: Almacenar el ID del jugador en la dirección efectiva calculada
 
+
     # 2. BUSCAR LUGAR PARA LA META (Fucsia - ID 3) 
-buscar_sitio_fucsia:
-    li   $v0, 42
-    li   $a1, 222
-    syscall
-    addi $a0, $a0, 18
-    add  $t6, $t0, $a0      
-    lb   $t5, 0($t6)        
-    bne  $t5, $zero, buscar_sitio_fucsia 
-    li   $t5, 3
-    sb   $t5, 0($t6)
+buscar_sitio_fucsia:   # Etiqueta de inicio del bucle
+    li   $v0, 42       # Servicio: Generar entero aleatorio
+    li   $a1, 222      # Argumento: Límite superior (0 a 221)
+    syscall            # Ejecutar (Resultado en $a0)
+    
+    addi $a0, $a0, 18  # Ajustar offset: Sumar 18 para saltar las paredes iniciales
+    add  $t6, $t0, $a0     # Dirección Efectiva = Base ($t0) + Random ($a0)
+    
+    lb   $t5, 0($t6)       # Leer byte: ¿Qué hay en esa casilla?
+    bne  $t5, $zero, buscar_sitio_fucsia # Si NO es 0 (está ocupado), repetir
+    
+    li   $t5, 3        #  Cargamos el ID 3 (Fucsia)
+    sb   $t5, 0($t6)   # Escribimos el 3 en la memoria
+
 
     # 3. BUSCAR LUGAR PARA EL TELETRANSPORTE (Morado - ID 4) 
-buscar_sitio_morado:
-    li   $v0, 42
-    li   $a1, 222
-    syscall
-    addi $a0, $a0, 18
-    add  $t6, $t0, $a0      
-    lb   $t5, 0($t6)        
-    bne  $t5, $zero, buscar_sitio_morado 
-    li   $t5, 4
-    sb   $t5, 0($t6)
+buscar_sitio_morado:   # Etiqueta de inicio del bucle
+    li   $v0, 42       # Servicio: Random Int
+    li   $a1, 222      # Rango: 0 a 221
+    syscall            # Resultado en $a0
+    
+    addi $a0, $a0, 18  # Ajuste de zona segura
+    add  $t6, $t0, $a0 # Dirección Efectiva ($t6) = Base + Random     
+    
+    lb   $t5, 0($t6)        # Leer: ¿Qué hay aquí?
+    bne  $t5, $zero, buscar_sitio_morado # Si NO es 0, repetir
+    
+    li   $t5, 4        # Cargar ID 4 (Morado)
+    sb   $t5, 0($t6)   # Pintarlo en el mapa
+    
+    
 
     # --- 4. GENERAR PUNTOS AMARILLOS (Monedas - ID 5) ---
-    li   $v0, 42
-    li   $a1, 4             
-    syscall
-    addi $s1, $a0, 3        # Generar entre 3 y 6 monedas
-    li   $s2, 0             # Contador
+    li   $v0, 42       # Servicio: Random Int
+    li   $a1, 4        # Genera: 0, 1, 2 o 3
+    syscall            # El resultado queda en $a0
+    addi $s1, $a0, 3   # Sumamos 3, $s1 guarda el limite de monedas
+    li   $s2, 0        # Inicializar el contador (i = 0)
 bucle_monedas:
-    bge  $s2, $s1, fin_bucle_monedas
+    bge  $s2, $s1, fin_bucle_monedas  # Condición de Salida: Si i >= N, terminar.
 buscar_sitio_amarillo:
-    li   $v0, 42
-    li   $a1, 222
-    syscall
-    addi $a0, $a0, 18
-    add  $t6, $t0, $a0      
-    lb   $t5, 0($t6)        
-    bne  $t5, $zero, buscar_sitio_amarillo 
-    li   $t5, 5
-    sb   $t5, 0($t6)
-    addi $s2, $s2, 1
-    j    bucle_monedas
+    # --- Generación de Coordenada ---
+    li   $v0, 42            # Preparar servicio: Generar entero aleatorio
+    li   $a1, 222           # Argumento: Límite superior del rango
+    syscall                 # Llamada al sistema (Resultado en $a0)
+    
+    addi $a0, $a0, 18       # Ajuste de Offset: Desplazar para evitar bordes no válidos
+    add  $t6, $t0, $a0      # Aritmética de Punteros: Calcular dirección efectiva ($t6 = Base + Random)
+      
+    lb   $t5, 0($t6)        # Lectura de Memoria: Verificar contenido actual de la casilla
+    bne  $t5, $zero, buscar_sitio_amarillo  # Condición: Si la casilla está ocupada (!= 0), reintentar posición 
+    
+    # Escritura en Memoria
+    li   $t5, 5        # Cargar Inmediato: Identificador lógico de Moneda (Valor 5)
+    sb   $t5, 0($t6)    # Almacenar Byte: Escribir el 5 en la dirección validada
+    
+    addi $s2, $s2, 1        # Incrementar el contador de monedas colocadas (i++)
+    j    bucle_monedas      # Salto incondicional: Volver a la cabecera del bucle para verificar condición de parada
 fin_bucle_monedas:
 
-    # --- 5. GENERAR FANTASMAS (Rojos - ID 6) ---
-    li   $v0, 42
-    li   $a1, 3             
-    syscall
-    addi $s1, $a0, 2        # Generar entre 2 y 4 fantasmas
-    la   $s3, num_fantasmas
-    sw   $s1, 0($s3)
-    li   $s2, 0             # Contador
-    la   $s4, pos_fantasmas
-    la   $s7, item_bajo_fantasma 
+
+    # 5. GENERAR FANTASMAS (Rojos - ID 6) 
+
+    #  PASO 1: DETERMINAR CANTIDAD (N) 
+    li   $v0, 42            # Prepara servicio Random Int
+    li   $a1, 3             # Rango [0, 1, 2]
+    syscall                 # Ejecutar. Resultado en $a0
+    addi $s1, $a0, 2        # Sumar 2. Rango Final: [2, 3, 4]. Esto es N ($s1).
+    
+    # Guardar N en memoria para que la IA lo use durante el juego
+    la   $s3, num_fantasmas 
+    sw   $s1, 0($s3)        # Guardar la cantidad total en la variable estática
+
+    # PASO 2: INICIALIZAR PUNTEROS Y CONTADOR 
+    li   $s2, 0             # Inicializ contador del bucle (i = 0)
+    la   $s4, pos_fantasmas # Cargar Puntero Base del arreglo de Posiciones (Words)
+    la   $s7, item_bajo_fantasma # Cargar Puntero Base del arreglo de Buffers (Bytes)
+
 bucle_rojos:
+    # Condición de parada: Si i ($s2) >= N ($s1), terminamos de crear fantasmas
     bge  $s2, $s1, fin_bucle_rojos
+
+    # PASO 3: BUSCAR SITIO VACÍO (Generación y Validación) 
 buscar_sitio_rojo:
-    li   $v0, 42
-    li   $a1, 222
+    li   $v0, 42            # Random Int
+    li   $a1, 222           # Límite superior
     syscall
-    addi $a0, $a0, 18
-    add  $t6, $t0, $a0      
-    lb   $t5, 0($t6)        
-    bne  $t5, $zero, buscar_sitio_rojo 
+    addi $a0, $a0, 18       # Offset de seguridad (evitar bordes)
     
-    sll  $t7, $s2, 2        
-    add  $t8, $s4, $t7      
-    sw   $a0, 0($t8)        # Guardar posición en array
+    add  $t6, $t0, $a0      # Calcular Dirección Efectiva en el mapa ($t6 = BaseMapa + Random)
+    lb   $t5, 0($t6)        # Leer contenido de esa casilla
+    bne  $t5, $zero, buscar_sitio_rojo # Si ocupado (!= 0), intentar de nuevo
     
-    add  $t8, $s7, $s2      
-    sb   $zero, 0($t8)      # Inicializar "item debajo" como 0 (camino vacío)
+    # PASO 4: GUARDAR EN ARREGLO DE POSICIONES (Enteros/Words) 
+    # Aquí se usa aritmética de punteros para Arrays de enteros (4 bytes)
+    sll  $t7, $s2, 2        # Calcular Desplazamiento: i * 4 (usando shift left)
+    add  $t8, $s4, $t7      # Dirección Destino = Base Arreglo ($s4) + Desplazamiento ($t7)
+    sw   $a0, 0($t8)        # Guardar la coordenada ($a0) en la posición i del arreglo
+
+    #  PASO 5: GUARDAR EN ARREGLO DE BUFFER (Bytes) 
+    # Aquí use usa aritmética simple para Arrays de bytes (1 byte)
+    add  $t8, $s7, $s2      # Dirección Destino = Base Arreglo ($s7) + i (sin multiplicar)
+    sb   $zero, 0($t8)      # Inicializar el buffer del fantasma i con 0 (se asume suelo vacío)
+
+    # PASO 6: PINTAR Y FINALIZAR ITERACIÓN 
+    li   $t5, 6             # Cargar ID 6 (Rojo)
+    sb   $t5, 0($t6)        # Escribir visualmente en el mapa (en la dirección $t6)
     
-    li   $t5, 6
-    sb   $t5, 0($t6)        # Pintarlo en el mapa
-    addi $s2, $s2, 1
-    j    bucle_rojos
+    addi $s2, $s2, 1        # Incrementar contador (i++)
+    j    bucle_rojos        # Volver al inicio del bucle para el siguiente fantasma
+
 fin_bucle_rojos:
 
     li   $s2, 0        # Reiniciar puntaje del jugador para empezar
 
-# --- BUCLE PRINCIPAL DEL JUEGO ---
+# --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 bucle_juego:
-    # --- DIBUJAR LA PANTALLA ---
-    la   $t0, mapa_juego
-    la   $t2, pantalla      # Dirección de memoria de video
-    la   $t1, paleta_colores
-    li   $t3, 0
-    li   $t4, 256
+
+    # FASE DE RENDERIZADO (DIBUJAR) 
+    # Preparamos los 3 punteros base necesarios para traducir lógica a gráficos
+    la   $t0, mapa_juego    # Puntero Base 1: Origen de datos lógicos (Array de Bytes)
+    la   $t2, pantalla      # Puntero Base 2: Destino de video (Bitmap Display)
+    la   $t1, paleta_colores # Puntero Base 3: Tabla de traducción (IDs -> Colores Hex)
+    
+    # Configuración del bucle iterador
+    li   $t3, 0             # Inicializar contador i = 0
+    li   $t4, 256           # Límite del bucle (16x16 casillas = 256 iteraciones)
+
 bucle_dibujo:
+    # Condición de salida: si i >= 256, terminamos de dibujar el frame
     bge  $t3, $t4, fin_bucle_dibujo
-    lb   $t5, 0($t0)            # Leer ID del mapa
-    sll  $t6, $t5, 2            # Multiplicar por 4
-    add  $t6, $t6, $t1          # Buscar color en paleta
-    lw   $t7, 0($t6)            # Cargar color HEX
-    sw   $t7, 0($t2)            # Pintar en pantalla
-    addi $t0, $t0, 1            
-    addi $t2, $t2, 4            
-    addi $t3, $t3, 1            
-    j    bucle_dibujo
+    
+    # 1. LEER EL MAPA LÓGICO
+    lb   $t5, 0($t0)        # Cargar Byte: Se obtiene el ID del objeto (0=Vacío, 1=Pared, etc.)
+    
+    # 2. TRADUCIR ID A DIRECCIÓN DE PALETA
+    # Como la paleta es un array de Words (4 bytes), se multiplica el ID por 4
+    sll  $t6, $t5, 2        # Desplazamiento lógico: $t6 = ID * 4
+    add  $t6, $t6, $t1      # Dirección Efectiva en Paleta = Base Paleta + Offset calculado
+    
+    # 3. OBTENER COLOR REAL
+    lw   $t7, 0($t6)        # Cargar Palabra: Traer el código de color HEX (ej: 0xFF0000FF)
+    
+    # 4. PINTAR EN PANTALLA
+    sw   $t7, 0($t2)        # Almacenar Palabra: Escribir el color en la memoria de video
+    
+    # 5. ACTUALIZAR PUNTEROS E ÍNDICE
+    addi $t0, $t0, 1        # Avanza 1 byte en el mapa lógico (Siguiente casilla)
+    addi $t2, $t2, 4        # Avanza 4 bytes en la pantalla (Siguiente píxel en Bitmap)
+    addi $t3, $t3, 1        # Incrementar contador (i++)
+    
+    j    bucle_dibujo       # Repetir para el siguiente píxel
+
 fin_bucle_dibujo:
 
     # --- ENTRADA DE TECLADO ---
