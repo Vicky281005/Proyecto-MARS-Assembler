@@ -1,5 +1,4 @@
 .data
-# --- IMPORTANTE: LA MEMORIA DE VIDEO DEBE IR PRIMERO ---
 # Al poner esto al inicio, aseguramos que 'pantalla' esté en la dirección base (0x10010000)
 pantalla: .space 1024   
 
@@ -97,7 +96,7 @@ mapa_juego:
     .byte 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1
     .byte 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
-.text  # Inicio del segmento de instrucciones (código ejecutable)
+.text  # Inicio del segmento de instrucciones 
 .globl main # Declara la etiqueta 'main' como global (punto de entrada del programa)
 
 main:
@@ -153,7 +152,7 @@ buscar_sitio_morado:   # Etiqueta de inicio del bucle
     
     
 
-    # --- 4. GENERAR PUNTOS AMARILLOS (Monedas - ID 5) ---
+    # 4. GENERAR PUNTOS AMARILLOS (Monedas - ID 5) 
     li   $v0, 42       # Servicio: Random Int
     li   $a1, 4        # Genera: 0, 1, 2 o 3
     syscall            # El resultado queda en $a0
@@ -183,7 +182,6 @@ fin_bucle_monedas:
 
 
     # 5. GENERAR FANTASMAS (Rojos - ID 6) 
-
     #  PASO 1: DETERMINAR CANTIDAD (N) 
     li   $v0, 42            # Prepara servicio Random Int
     li   $a1, 3             # Rango [0, 1, 2]
@@ -215,13 +213,13 @@ buscar_sitio_rojo:
     bne  $t5, $zero, buscar_sitio_rojo # Si ocupado (!= 0), intentar de nuevo
     
     # PASO 4: GUARDAR EN ARREGLO DE POSICIONES (Enteros/Words) 
-    # Aquí se usa aritmética de punteros para Arrays de enteros (4 bytes)
+    # Aquí se usa aritmética de punteros para Arrays de enteros (4 bytes) para pasar al siguiente elemento
     sll  $t7, $s2, 2        # Calcular Desplazamiento: i * 4 (usando shift left)
     add  $t8, $s4, $t7      # Dirección Destino = Base Arreglo ($s4) + Desplazamiento ($t7)
     sw   $a0, 0($t8)        # Guardar la coordenada ($a0) en la posición i del arreglo
 
     #  PASO 5: GUARDAR EN ARREGLO DE BUFFER (Bytes) 
-    # Aquí use usa aritmética simple para Arrays de bytes (1 byte)
+    # Como cada elemento mide 1 byte, el índice "i" es igual al desplazamiento en memoria (no se multiplica)
     add  $t8, $s7, $s2      # Dirección Destino = Base Arreglo ($s7) + i (sin multiplicar)
     sb   $zero, 0($t8)      # Inicializar el buffer del fantasma i con 0 (se asume suelo vacío)
 
@@ -236,7 +234,7 @@ fin_bucle_rojos:
 
     li   $s2, 0        # Reiniciar puntaje del jugador para empezar
 
-# --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
+# BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) 
 bucle_juego:
 
     # FASE DE RENDERIZADO (DIBUJAR) 
@@ -385,7 +383,7 @@ movimiento_normal:
     sb   $t5, 0($t7)        # Escritura en memoria: Poner 2 (Jugador) en la nueva casilla
     move $s0, $t6           # Actualizar la nueva posición ($t6) es ahora la actual ($s0)
 
-    # --- VERIFICACIÓN DE COLISIÓN (JUGADOR -> ENEMIGO) ---
+    # VERIFICACIÓN DE COLISIÓN (JUGADOR -> ENEMIGO) 
     # Fase de Inicialización del Bucle de Búsqueda
 verificar_colision_1:
     la   $s3, num_fantasmas     # Cargar dirección de la variable de cantidad
@@ -425,7 +423,7 @@ bucle_fantasmas_ext:
     # Si el índice actual ($s5) alcanza el límite ($s3), salir del bucle
     bge  $s5, $s3, verificar_colision_2 
     
-    # Acceso indexado al arreglo de posiciones
+    # Buscar un elemento específico dentro de una lista usando su número de posición 
     sll  $t7, $s5, 2        # Calcular desplazamiento de memoria: Índice * 4 bytes
     add  $t8, $s4, $t7      # Calcular dirección efectiva: Base del arreglo ($s4) + Desplazamiento
     lw   $s6, 0($t8)        # Cargar la posición actual del fantasma 'i' desde la memoria
@@ -705,13 +703,12 @@ bucle_oct_vic:
     
     
     # PUNTUACION EN BINARIO
-    
-    # 1. ETIQUETA
+    # ETIQUETA
     la   $a0, msj_bin       # Escribir "Bin: 0b" en la consola.
     li   $v0, 4
     syscall
 
-    # 2. PREPARACIÓN
+    # PREPARACIÓN
     move $t8, $s2           # Hacer una copia de seguridad del puntaje para no dañarlo.
     li   $t9, 31            # Poner el "dedo" en el bit 31 (el primero de la izquierda).
 
@@ -737,7 +734,7 @@ bucle_bin_vic:
     syscall
 
     # PANTALLA FINAL (DIBUJO)
-    # --- CONFIGURACIÓN DEL CONTEXTO GRÁFICO ---
+    # CONFIGURACIÓN DEL CONTEXTO GRÁFICO 
     # Inicializamos los punteros necesarios para la transferencia de datos visuales
     la   $t0, mapa_victoria     # Establecer el origen de datos: Matriz estática de la imagen de victoria
     la   $t2, pantalla          # Establecer el destino de escritura: Dirección base del Bitmap Display
